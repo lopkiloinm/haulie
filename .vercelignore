@@ -1,0 +1,4 @@
+contracts/**/build/
+test-results/
+playwright-report/
+.git/

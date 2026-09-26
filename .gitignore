@@ -11,3 +11,4 @@ out/
 contracts/**/build/
 test-results/
 playwright-report/
+.vercel
