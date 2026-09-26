@@ -87,3 +87,19 @@ World ID establishes uniqueness and session continuity, not legal identity, back
 ### Official World sandbox
 
 The courier workspace now links to [/world-sandbox](https://haulie-chi.vercel.app/world-sandbox): a deployed integration with World's official OIDC sandbox. It validates tokens on the server and requires fresh same-identity authentication for acceptance and pickup. World's sandbox uses mocked identities; orders are isolated browser-scoped tests and payments remain simulated. Configuration, validation results, and integration debrief: [docs/world-sandbox.md](docs/world-sandbox.md).
+
+### Real Sui wallet
+
+[/wallet](https://haulie-chi.vercel.app/wallet) connects a real Sui Wallet Standard account via Mysten dApp Kit. The same wallet panel is available under Wallet/Earnings and on the World sandbox page. It reads SUI and native testnet USDC balances from Sui gRPC, supports exact-decimal transfers approved in the user's wallet, submits signed transactions to testnet, and links successful executions to SuiScan. No private key is requested or stored by Haulie.
+
+This integration is fixed to **testnet**. Direct wallet transfers are separate from simulated delivery fees and from the unpublished live escrow contract. Connecting a wallet does not enroll a courier or bind an address to a verified World identity; the existing authenticated wallet-challenge backend is still needed for live courier payouts.
+
+Validation: wallet discovery, connection, balance rendering, invalid recipients, rejected signing, decimal precision, overflow and mobile layouts are tested. Public testnet balance reads were checked against the real network. A funded transfer smoke test was attempted but the public faucet returned HTTP 429; successful live transfer execution is not yet verified. To run the test using a fresh, memory-only test key and faucet SUI:
+
+```
+SUI_LIVE_TEST=1 PLAYWRIGHT_BASE_URL=https://haulie-chi.vercel.app npx tsx scripts/check-sui-wallet.mts
+```
+
+Add `SUI_BALANCE_ONLY=1` to check real connection/balance reads without faucet funding. No test wallet is exposed by the deployed app.
+
+References: [Mysten dApp Kit](https://sdk.mystenlabs.com/dapp-kit/getting-started/next-js), [Circle native USDC addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses).

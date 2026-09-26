@@ -1,0 +1,254 @@
+.sui-wallet {
+  padding: 28px;
+  margin-bottom: 24px;
+  min-width: 0;
+}
+.sui-wallet-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+.sui-wallet-heading h2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 9px 0;
+  font-size: 24px;
+  letter-spacing: -0.7px;
+}
+.sui-wallet-heading p,
+.sui-wallet-help {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #778074;
+  margin: 8px 0 18px;
+}
+.sui-network {
+  border: 1px solid #d8e7f2;
+  background: #eff6fa;
+  color: #42738e;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+.sui-connect-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 15px;
+}
+.sui-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  max-width: 100%;
+}
+.sui-connect small {
+  font-size: 9px;
+  color: #798477;
+}
+.sui-address {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e3e7de;
+  background: #fafbf7;
+  border-radius: 10px;
+  margin: 18px 0;
+}
+.sui-address a {
+  font: 11px/1.8 monospace;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  color: #4c6749;
+  flex: 1;
+  text-decoration: none;
+}
+.sui-address svg {
+  vertical-align: middle;
+  margin-left: 5px;
+}
+.sui-balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 18px 0 24px;
+}
+.sui-balances > div {
+  background: #f4f7ee;
+  padding: 18px;
+  border-radius: 12px;
+  min-width: 0;
+}
+.sui-balances span {
+  display: block;
+  font-size: 11px;
+  color: #718065;
+  margin-bottom: 10px;
+}
+.sui-balances strong {
+  display: block;
+  font-size: 26px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.6px;
+}
+.sui-balances small {
+  font-size: 12px;
+  color: #7c8871;
+  font-weight: 500;
+}
+.sui-transfer {
+  border-top: 1px solid #e9ece3;
+  padding-top: 22px;
+}
+.sui-transfer h3 {
+  font-size: 15px;
+  margin: 0 0 7px;
+}
+.sui-transfer > p {
+  font-size: 12px;
+  color: #7a8374;
+  margin-bottom: 20px;
+}
+.sui-transfer fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.sui-transfer label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 0;
+  margin-bottom: 14px;
+}
+.sui-transfer input,
+.sui-transfer select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #dde4d5;
+  border-radius: 9px;
+  padding: 12px;
+  background: #fff;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  color: #304a32;
+}
+.sui-transfer input:focus,
+.sui-transfer select:focus {
+  outline: 2px solid #a6bd95;
+  outline-offset: 2px;
+}
+.sui-amount-row {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 12px;
+}
+.sui-review {
+  padding: 16px;
+  background: #f3f6ed;
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+}
+.sui-review span {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font: 11px/1.7 monospace;
+}
+.sui-review small {
+  color: #7b836f;
+  line-height: 1.7;
+  font-size: 11px;
+}
+.sui-wallet-error {
+  padding: 13px;
+  border-radius: 9px;
+  background: #fff2ec;
+  color: #9e513c;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.sui-receipt {
+  margin-top: 16px;
+  padding: 15px;
+  background: #edf5e8;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+  font-size: 13px;
+}
+.sui-receipt strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sui-receipt a,
+.sui-wallet-footer a {
+  color: #4b6e3c;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+}
+.sui-wallet-footer {
+  border-top: 1px solid #e7ebe1;
+  padding-top: 16px;
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #8b9382;
+}
+.wallet-loading {
+  font-size: 12px;
+  color: #7c8775;
+}
+.sui-wallet button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sui-wallet .button {
+  white-space: normal;
+}
+.sui-wallet mysten-dapp-kit-connect-button,
+.sui-connect mysten-dapp-kit-connect-button {
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .sui-wallet {
+    padding: 20px;
+  }
+  .sui-balances {
+    grid-template-columns: 1fr;
+  }
+  .sui-wallet-heading h2 {
+    font-size: 21px;
+  }
+  .sui-wallet .button {
+    width: 100%;
+  }
+  .sui-network {
+    font-size: 9px;
+  }
+  .sui-wallet-footer {
+    line-height: 1.6;
+  }
+}

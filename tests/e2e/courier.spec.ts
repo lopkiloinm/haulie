@@ -250,7 +250,7 @@ test("cancelling before handoff reoffers the funded delivery and requires new ch
   expect((await storedDelivery(page)).pickupVerified).toBe(false);
 });
 
-test("courier can inspect offers but needs enrollment and a wallet to accept", async ({
+test("courier can inspect offers, enroll in the demo, and open a real Sui wallet", async ({
   page,
 }) => {
   await page.goto("/courier");
@@ -270,15 +270,8 @@ test("courier can inspect offers but needs enrollment and a wallet to accept", a
     .getByRole("button", { name: "Try demo enrollment", exact: true })
     .click();
   await expect(accept).toBeEnabled();
-  await page
-    .getByRole("button", { name: "Demo wallet connected", exact: true })
-    .click();
-  await expect(accept).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Connect Sui wallet", exact: true })).toBeVisible();
   expect((await storedDelivery(page)).status).toBe("FUNDED");
-  await page
-    .getByRole("button", { name: "Connect demo wallet", exact: true })
-    .click();
-  await expect(accept).toBeEnabled();
 });
 
 test.describe("courier on mobile", () => {

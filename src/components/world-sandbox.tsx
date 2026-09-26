@@ -4,11 +4,8 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowUpRight,
-  Bike,
   Check,
   CircleAlert,
-  LockKeyhole,
-  Package,
   ShieldCheck,
 } from "lucide-react";
 import "./world-sandbox.css";
@@ -19,17 +16,15 @@ type Status = {
   jobs: Record<string, { accepted: number; pickedUp?: number }>;
 };
 const messages: Record<string, string> = {
-  accepted:
-    "World verified your fresh sign-in. Your sandbox delivery is accepted.",
-  "picked-up":
-    "The same World identity passed a new check. Sandbox pickup is confirmed.",
-  denied: "Verification was declined. No delivery action was authorized.",
+  accepted: "Delivery accepted. Verify again at pickup.",
+  "picked-up": "Pickup verified.",
+  denied: "Verification declined. Delivery unchanged.",
   expired:
-    "This request expired or no longer matches your browser. Start a new check.",
+    "Verification expired. Start a new check.",
   failed:
-    "World verification could not be validated. No delivery action was authorized. Try again with the same World identity.",
+    "Verification failed. Try again with the same World identity.",
   unavailable:
-    "World sandbox is temporarily unavailable or awaiting configuration. No action was authorized.",
+    "World sandbox is unavailable. Try again later.",
 };
 export function WorldSandbox({
   initialJob = "HL-1046",
@@ -64,7 +59,7 @@ export function WorldSandbox({
       .catch(() => {
         if (active)
           setMessage(
-            "Could not load the sandbox connection. Refresh to try again.",
+            "Could not connect to World. Refresh to try again.",
           );
       });
     return () => {
@@ -102,9 +97,7 @@ export function WorldSandbox({
         method: "POST",
       });
       if (!result.ok) throw new Error();
-      setMessage(
-        "Pending verification cancelled. No new action was authorized.",
-      );
+      setMessage("Verification cancelled. Delivery unchanged.");
       setBusy(false);
     } catch {
       setMessage(
@@ -116,48 +109,26 @@ export function WorldSandbox({
   return (
     <main className="world-sandbox">
       <header className="sandbox-header">
-        <Link href="/courier" className="sandbox-brand">
-          <Bike size={28} /> haulie<span>World sandbox</span>
-        </Link>
         <Link href="/courier" className="sandbox-back">
-          <ArrowLeft size={16} /> Courier workspace
+          <ArrowLeft size={16} /> Back to Haulie
+        </Link>
+        <Link href="/wallet" className="sandbox-back">
+          Sui wallet <ArrowUpRight size={16} />
         </Link>
       </header>
       <div className="sandbox-layout">
         <section className="sandbox-intro">
-          <span className="sandbox-eyebrow">A HUMAN AT EVERY HANDOFF</span>
-          <h1>
-            Real connection.
-            <br />
-            <em>Test deliveries.</em>
-          </h1>
-          <p>
-            Connect to World’s official sandbox. Accept a delivery with a fresh
-            sign-in, then prove it’s the same identity at pickup.
-          </p>
-          <div className="sandbox-note">
-            <ShieldCheck size={22} />
-            <div>
-              <strong>Official World sandbox</strong>
-              <p>
-                World uses test identities here. This is not production proof of
-                humanity. No real parcel or money moves.
-              </p>
-            </div>
+          <div className="sandbox-title-row">
+            <h1>World verification</h1>
+            <span className="sandbox-network">Sandbox</span>
           </div>
-          <a
-            href="https://sandbox.auth.world.org/docs"
-            target="_blank"
-            rel="noreferrer"
-          >
-            How World verification works <ArrowUpRight size={16} />
-          </a>
+          <p>
+            Verify to accept a delivery, then confirm the same identity at pickup.
+          </p>
         </section>
         <section className="sandbox-card" aria-label="World sandbox delivery">
           <div className="sandbox-card-top">
-            <span className="sandbox-package">
-              <Package size={25} />
-            </span>
+            <h2>Delivery {job}</h2>
             <span className="sandbox-badge">
               {delivery?.pickedUp
                 ? "Pickup confirmed"
@@ -166,41 +137,23 @@ export function WorldSandbox({
                   : "Available to accept"}
             </span>
           </div>
-          <span className="sandbox-eyebrow">SANDBOX DELIVERY · {job}</span>
-          <h2>Your human handoff</h2>
-          <p className="sandbox-description">
-            An isolated test order for the World verification journey. Your main
-            demo workspace stays separate.
-          </p>
           <ol className="sandbox-steps">
             <li className={delivery ? "complete" : ""}>
               <span>{delivery ? <Check size={16} /> : "1"}</span>
               <div>
                 <strong>Accept with World</strong>
-                <p>Fresh authentication authorizes this sandbox order.</p>
+                <p>Sign in to accept this order.</p>
               </div>
             </li>
             <li className={delivery?.pickedUp ? "complete" : ""}>
               <span>{delivery?.pickedUp ? <Check size={16} /> : "2"}</span>
               <div>
                 <strong>Verify again at pickup</strong>
-                <p>A new check must match the identity that accepted.</p>
-              </div>
-            </li>
-            <li>
-              <span>
-                <LockKeyhole size={16} />
-              </span>
-              <div>
-                <strong>Server checks every result</strong>
-                <p>
-                  Invalid, cancelled, or expired sign-ins cannot approve a
-                  handoff.
-                </p>
+                <p>Use the same World identity.</p>
               </div>
             </li>
           </ol>
-          {message && (
+          {message && !delivery?.pickedUp && (
             <div className="sandbox-message" role="status">
               <CircleAlert size={18} />
               <p>{message}</p>
@@ -209,11 +162,7 @@ export function WorldSandbox({
           {status && !status.configured && (
             <div className="sandbox-message" role="status">
               <CircleAlert size={18} />
-              <p>
-                Connection awaiting setup. Haulie’s owner needs to save the
-                registered World sandbox client credentials before verification
-                can begin.
-              </p>
+              <p>Connection awaiting setup.</p>
             </div>
           )}
           {!delivery?.pickedUp && (
@@ -234,24 +183,27 @@ export function WorldSandbox({
             </button>
           )}
           {delivery?.pickedUp && (
-            <div className="sandbox-success">
+            <div className="sandbox-success" role="status">
               <Check size={20} /> Both World checks complete
             </div>
           )}
-          <button className="text-button centered" onClick={cancel}>
-            Cancel pending verification
-          </button>
-          <p className="sandbox-footnote">
-            You’ll continue on sandbox.auth.world.org. Only the openid scope is
-            requested. Identity and tokens stay on Haulie’s server or in
-            encrypted, HttpOnly session cookies.
-          </p>
+          {!delivery?.pickedUp && (
+            <button className="text-button centered" onClick={cancel}>
+              Cancel pending verification
+            </button>
+          )}
         </section>
+        <footer className="sandbox-footer">
+          <p>Test identities. No real deliveries or payouts. Session lasts 24 hours.</p>
+          <a
+            href="https://sandbox.auth.world.org/docs"
+            target="_blank"
+            rel="noreferrer"
+          >
+            World sandbox docs <ArrowUpRight size={14} />
+          </a>
+        </footer>
       </div>
-      <footer className="sandbox-footer">
-        Sandbox orders belong to this browser session and expire after 24 hours.
-        They do not reserve shared delivery inventory or authorize payouts.
-      </footer>
     </main>
   );
 }

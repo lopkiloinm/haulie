@@ -12,7 +12,6 @@ import {
   Package,
   RotateCcw,
   ShieldCheck,
-  Sparkles,
   Wallet,
   X,
 } from "lucide-react";
@@ -165,7 +164,7 @@ export function DeliveryDetail({
   );
   function requestProof(stage: "ACCEPT" | "VERIFY_PICKUP") {
     if (stage === "ACCEPT" && !acceptanceReady) {
-      notify("Complete demo enrollment and connect the demo wallet first.");
+      notify("Enroll and connect a demo wallet first.");
       return;
     }
     setVerification({
@@ -178,7 +177,7 @@ export function DeliveryDetail({
     if (!verification || busy) return;
     if (verification.expires < Date.now()) {
       setVerification(null);
-      notify("This demo request expired. Start a fresh verification.");
+      notify("Verification expired. Try again.");
       return;
     }
     const stage = verification.stage;
@@ -205,47 +204,44 @@ export function DeliveryDetail({
   const steps = [
     {
       title: "Funds reserved",
-      detail: `${formatMoney(job.fee)} demo USDC ready for this delivery`,
+      detail: `${formatMoney(job.fee)} demo USDC`,
       done: true,
       icon: LockKeyhole,
     },
     {
-      title: "Courier freshly verified",
+      title: "Courier verification",
       detail: job.acceptVerified
-        ? `${job.courier} · verified for this delivery`
-        : "A new session check is required to accept",
+        ? `${job.courier} · verified`
+        : "Required to accept",
       done: !!job.acceptVerified,
       icon: ShieldCheck,
     },
     {
-      title: "Pickup, confirmed together",
+      title: "Pickup",
       detail:
         job.status === "ASSIGNED" && job.pickupVerified
-          ? "Courier checked. Waiting for merchant handoff."
+          ? "Verified · awaiting merchant handoff"
           : job.pickupVerified && job.status !== "ASSIGNED"
-            ? "Fresh courier check + merchant confirmation"
-            : "A second check and merchant confirmation",
+            ? "Merchant handoff confirmed"
+            : "Courier check and merchant handoff",
       done:
         !!job.pickupVerified && !["ASSIGNED", "FUNDED"].includes(job.status),
       icon: Package,
     },
     {
-      title: "Safe in the recipient’s hands",
+      title: "Delivery",
       detail: job.recipientConfirmed
-        ? "The recipient confirmed receipt"
-        : "The recipient independently confirms receipt",
+        ? "Recipient confirmed receipt"
+        : "Recipient confirmation required",
       done: !!job.recipientConfirmed,
       icon: CircleCheck,
     },
     {
-      title:
-        job.status === "PAID"
-          ? "Demo courier payout complete"
-          : "Courier payment released",
+      title: "Payment",
       detail:
         job.status === "PAID"
-          ? "Simulated payment · no on-chain transaction"
-          : "Only after confirmation, with no open dispute",
+          ? "Demo payout complete"
+          : "Released after delivery, unless disputed",
       done: job.status === "PAID",
       icon: Wallet,
     },
@@ -264,8 +260,7 @@ export function DeliveryDetail({
           {s.label}
         </span>
         <span className="detail-demo-label">
-          <Sparkles size={13} />
-          Interactive demo · no real funds
+          Demo · no real funds
         </span>
         <button
           className="text-button"
@@ -331,7 +326,7 @@ export function DeliveryDetail({
                         : "Courier fee reserved"}
                 </strong>
                 <small>
-                  {job.payoutWallet || "Payout wallet fixed at acceptance"}
+                  {job.payoutWallet || "Wallet set when accepted"}
                 </small>
               </span>
             </div>
@@ -339,9 +334,7 @@ export function DeliveryDetail({
               {formatMoney(job.fee)} <small>USDC</small>
             </b>
             <p>
-              {job.status === "PAID"
-                ? "There is no transaction digest: this is a simulated payment."
-                : "Demo balance only. Live escrow holds native USDC on Sui."}
+              Simulated funds · no on-chain transfer.
             </p>
           </div>
           {job.courier && (
@@ -351,7 +344,7 @@ export function DeliveryDetail({
                 <strong>{job.courier}</strong>
                 <small>
                   <ShieldCheck size={13} />
-                  Verified for this delivery · demo
+                  Demo verification
                 </small>
               </span>
               <Bike size={21} />
@@ -359,9 +352,7 @@ export function DeliveryDetail({
           )}
         </div>
         <div className="detail-right">
-          <h3 className="timeline-heading">
-            A clear path, from here to there.
-          </h3>
+          <h3 className="timeline-heading">Delivery progress</h3>
           <div className="delivery-timeline">
             {steps.map((step, index) => (
               <div
@@ -386,8 +377,7 @@ export function DeliveryDetail({
           {job.status !== "PAID" && job.status !== "REFUNDED" && (
             <div className="handoff-controls">
               <div className="control-heading">
-                <span className="mini-label">TRY THE NEXT HANDOFF</span>
-                <span>View as</span>
+                <span className="mini-label">Demo role</span>
               </div>
               <div className="role-tabs" aria-label="Demo role">
                 {(
@@ -409,26 +399,12 @@ export function DeliveryDetail({
               </div>
               {verification ? (
                 <div className="proof-panel">
-                  <span className="proof-orb">
-                    <GlobeMark />
-                  </span>
-                  <span className="mini-label">FRESH SESSION CHECK · DEMO</span>
-                  <h3>Same human. New handoff.</h3>
+                  <h3>Verify this delivery</h3>
                   <p>
-                    A new proof is required for <strong>{job.id}</strong> at{" "}
-                    <strong>
-                      {verification.stage === "ACCEPT"
-                        ? "acceptance"
-                        : "pickup"}
-                    </strong>
-                    . An old verification badge cannot approve this step.
+                    {verification.stage === "ACCEPT"
+                      ? "Complete a demo check to accept this delivery."
+                      : "Complete a new demo check for pickup."}
                   </p>
-                  <div className="proof-context">
-                    <span>Request</span>
-                    <code>{verification.nonce.slice(0, 8)}…</code>
-                    <span>Expires</span>
-                    <strong>2 minutes from request</strong>
-                  </div>
                   <button
                     className="button button-primary full-width"
                     disabled={busy}
@@ -458,11 +434,9 @@ export function DeliveryDetail({
                   </small>
                   <a
                     href={`/world-sandbox?job=${encodeURIComponent(job.id)}`}
-                    className="button button-secondary full-width"
-                    style={{ marginTop: 14, textDecoration: "none" }}
+                    className="text-button centered"
                   >
-                    <ShieldCheck size={17} />
-                    Try official World sandbox
+                    Open World sandbox
                   </a>
                 </div>
               ) : (
@@ -473,19 +447,18 @@ export function DeliveryDetail({
                       <div className="notice">
                         <ShieldCheck size={18} />
                         <p>
-                          This delivery is assigned to {job.courier}. You’re
-                          viewing as {DEMO_COURIER.name}; only the assigned
-                          courier can verify pickup or cancel the assignment.
+                          Assigned to {job.courier}. Only they can verify pickup
+                          or cancel. You’re viewing as {DEMO_COURIER.name}.
                         </p>
                       </div>
                     )}
                   {job.status === "FUNDED" &&
                     (role === "Courier" ? (
                       <>
-                        <h4>A good delivery starts with you.</h4>
+                        <h4>Accept this delivery</h4>
                         <p>
-                          Complete a fresh demo check to accept. The payout
-                          address will be fixed to this assignment.
+                          Verify to accept. Your payout wallet will be fixed
+                          for this delivery.
                         </p>
                         <button
                           className="button button-primary full-width"
@@ -497,17 +470,16 @@ export function DeliveryDetail({
                         </button>
                         {!acceptanceReady && (
                           <p>
-                            Complete demo enrollment and connect your demo
-                            payout wallet in the courier workspace first.
+                            Enroll and connect a demo wallet in the courier
+                            workspace first.
                           </p>
                         )}
                       </>
                     ) : (
                       <>
-                        <h4>Ready for a verified courier.</h4>
+                        <h4>Awaiting a courier</h4>
                         <p>
-                          Demo funds are reserved. Switch to the courier view to
-                          complete a fresh acceptance check.
+                          Select Courier to accept this delivery.
                         </p>
                         {role === "Merchant" && (
                           <button
@@ -524,13 +496,13 @@ export function DeliveryDetail({
                       <>
                         <h4>
                           {job.pickupVerified
-                            ? "You’re checked in. Ready to hand over."
-                            : "At pickup? Time for a fresh check."}
+                            ? "Awaiting merchant handoff"
+                            : "Verify at pickup"}
                         </h4>
                         <p>
                           {job.pickupVerified
-                            ? "The merchant must now confirm that the parcel has been handed to you."
-                            : "Your acceptance check cannot be reused. Complete a second check for this pickup."}
+                            ? "The merchant must confirm handing you the parcel."
+                            : "A new check is required before collecting the parcel."}
                         </p>
                         <button
                           className="button button-primary full-width"
@@ -553,13 +525,13 @@ export function DeliveryDetail({
                       <>
                         <h4>
                           {job.pickupVerified
-                            ? "Your courier is ready."
-                            : "A fresh pickup check comes first."}
+                            ? "Confirm handoff"
+                            : "Awaiting pickup verification"}
                         </h4>
                         <p>
                           {job.pickupVerified
-                            ? "Confirm only once the parcel is in the courier’s hands."
-                            : "Do not hand over the parcel until the courier completes the pickup verification."}
+                            ? "Confirm after handing the parcel to the courier."
+                            : "Wait for courier verification before handing over the parcel."}
                         </p>
                         <button
                           className="button button-primary full-width"
@@ -574,20 +546,18 @@ export function DeliveryDetail({
                       </>
                     ) : (
                       <>
-                        <h4>Getting ready to go.</h4>
+                        <h4>Awaiting pickup</h4>
                         <p>
-                          The courier and merchant must both confirm pickup
-                          before the delivery can move forward.
+                          Courier verification and merchant handoff are required.
                         </p>
                       </>
                     ))}
                   {job.status === "PICKED_UP" &&
                     (role === "Recipient" ? (
                       <>
-                        <h4>Your parcel made it.</h4>
+                        <h4>Confirm delivery</h4>
                         <p>
-                          Check that you’ve received the right parcel and it’s
-                          in good condition before confirming.
+                          Check the parcel and its condition before confirming.
                         </p>
                         <label className="checkbox-label receipt-check">
                           <input
@@ -608,10 +578,10 @@ export function DeliveryDetail({
                       </>
                     ) : role === "Courier" && isOwnCourierJob(job) ? (
                       <>
-                        <h4>On your way to a good handoff.</h4>
+                        <h4>Deliver the parcel</h4>
                         <p>
-                          The recipient must confirm receipt. You can record an
-                          attempt if they’re unavailable.
+                          Ask the recipient to confirm receipt. Record an attempt
+                          if they’re unavailable.
                         </p>
                         <button
                           className="button button-secondary full-width"
@@ -623,10 +593,9 @@ export function DeliveryDetail({
                       </>
                     ) : (
                       <>
-                        <h4>Good things are on the way.</h4>
+                        <h4>In transit</h4>
                         <p>
-                          The courier has the parcel. Switch to the recipient
-                          view to confirm it arrived safely.
+                          Select Recipient to confirm delivery.
                         </p>
                         <span className="waiting-label">
                           <Clock3 size={14} />
@@ -640,13 +609,13 @@ export function DeliveryDetail({
                     <>
                       <h4>
                         {job.status === "PAYOUT_RETRY"
-                          ? "Ready for a careful retry."
-                          : "Delivered, with everyone in the loop."}
+                          ? "Retry payment"
+                          : "Ready for payment"}
                       </h4>
                       <p>
                         {job.status === "PAYOUT_RETRY"
-                          ? "Receipt is still confirmed. Retry settlement without changing the payout address or releasing funds twice."
-                          : "Both courier checks and both handoffs are complete. The reserved fee can now be released."}
+                          ? "Delivery is confirmed. Retry the demo payout to the same wallet."
+                          : "Delivery is confirmed. Release the reserved courier fee."}
                       </p>
                       <button
                         className="button button-primary full-width"
@@ -683,11 +652,10 @@ export function DeliveryDetail({
                       <span className="dispute-symbol">
                         <CircleAlert size={23} />
                       </span>
-                      <h4>This delivery needs a little attention.</h4>
+                      <h4>Dispute under review</h4>
                       <p className="dispute-reason">{job.disputeReason}</p>
                       <p>
-                        Automatic payout is frozen. An operator must review the
-                        case before it can continue.
+                        Payout is paused until an operator resolves the dispute.
                       </p>
                       {role === "Operator" ? (
                         <button
@@ -712,20 +680,18 @@ export function DeliveryDetail({
           {job.status === "PAID" && (
             <div className="success-panel">
               <CircleCheck size={30} />
-              <h3>A good delivery, all around.</h3>
+              <h3>Delivery complete</h3>
               <p>
-                {formatMoney(job.fee)} demo USDC paid to {job.courier}. No real
-                transfer took place.
+                {formatMoney(job.fee)} demo USDC paid to {job.courier}.
               </p>
             </div>
           )}
           {job.status === "REFUNDED" && (
             <div className="success-panel">
               <RotateCcw size={28} />
-              <h3>Back where it started.</h3>
+              <h3>Delivery refunded</h3>
               <p>
-                {formatMoney(job.fee)} demo USDC has been returned to the
-                merchant balance.
+                {formatMoney(job.fee)} demo USDC returned to the merchant.
               </p>
             </div>
           )}
@@ -778,7 +744,7 @@ export function DeliveryDetail({
                     onClick={() => setIssue(true)}
                   >
                     <CircleAlert size={14} />
-                    Something not right? Report an issue
+                    Report an issue
                   </button>
                 )}
               </div>
@@ -807,34 +773,5 @@ export function DeliveryDetail({
         </div>
       </details>
     </Modal>
-  );
-}
-function GlobeMark() {
-  return (
-    <svg viewBox="0 0 40 40" width="42" height="42" aria-hidden="true">
-      <circle
-        cx="20"
-        cy="20"
-        r="16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <ellipse
-        cx="20"
-        cy="20"
-        rx="8"
-        ry="16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M4 20h32M7 11h26M7 29h26"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
   );
 }

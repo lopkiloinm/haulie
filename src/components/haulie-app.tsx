@@ -1,4 +1,5 @@
 "use client";
+import { SuiWallet } from "./sui-wallet";
 
 import Link from "next/link";
 import {
@@ -25,14 +26,11 @@ import {
   CircleHelp,
   Clock3,
   FileText,
-  Globe2,
   History,
   LayoutDashboard,
-  Leaf,
   LockKeyhole,
   MapPin,
   Menu,
-  MoreHorizontal,
   Package,
   Plus,
   Search,
@@ -47,7 +45,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { DeliveryMap } from "./delivery-map";
-import { ParcelArt } from "./parcel-art";
 import { DeliveryDetail, Modal } from "./delivery-detail";
 import {
   DEMO_COURIER,
@@ -374,7 +371,7 @@ export function HaulieApp({
                 onClick={() => setRoleOpen(false)}
               />
               <div className="role-menu">
-                <p>EXPLORE THE DEMO AS</p>
+                <p>Switch role</p>
                 {ROLES.map((r) => (
                   <button key={r} onClick={() => switchWorkspace(r)}>
                     <span>{r}</span>
@@ -385,7 +382,7 @@ export function HaulieApp({
             </>
           )}
         </div>
-        <span className="nav-caption">WORKSPACE</span>
+
         <nav>
           {NAV.filter(
             (item) => role !== "Courier" || item.label !== "Couriers",
@@ -408,31 +405,16 @@ export function HaulieApp({
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <div className="note-icon">
-              <ShieldCheck size={22} />
-              <span className="little-spark">✦</span>
-            </div>
-            <strong>
-              Real humans.
-              <br />
-              Better deliveries.
-            </strong>
-            <p>A fresh check at every handoff. That’s the Haulie way.</p>
-            <button onClick={() => setDialog("guide")}>
-              Get to know Haulie <ArrowUpRight size={14} />
-            </button>
-          </div>
           <button className="nav-item" onClick={() => setDialog("guide")}>
             <CircleHelp size={20} />
-            <span>Help & getting started</span>
+            <span>Help</span>
             <ArrowUpRight size={15} />
           </button>
           <button className="nav-item" onClick={() => setDialog("settings")}>
             <Settings2 size={20} />
             <span>Settings</span>
           </button>
-          <button className="profile" onClick={() => setDialog("settings")}>
+          <div className="profile">
             <Avatar
               initials={role === "Courier" ? DEMO_COURIER.initials : "AL"}
             />
@@ -444,8 +426,7 @@ export function HaulieApp({
                 {role === "Courier" ? "Courier · demo" : "Business owner"}
               </small>
             </span>
-            <MoreHorizontal size={18} />
-          </button>
+          </div>
         </div>
       </aside>
       <div className="main-shell">
@@ -464,24 +445,26 @@ export function HaulieApp({
             <span>{pageLabel(page)}</span>
           </div>
           <div className="topbar-actions">
-            <label className="global-search">
-              <Search size={16} />
-              <input
-                ref={searchRef}
-                aria-label="Search deliveries"
-                placeholder="Search anything..."
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  if (page !== "Overview" && page !== "Deliveries")
-                    setPage("Deliveries");
-                }}
-              />
-              <kbd>⌘ K</kbd>
-            </label>
+            {!courierMode && (
+              <label className="global-search">
+                <Search size={16} />
+                <input
+                  ref={searchRef}
+                  aria-label="Search deliveries"
+                  placeholder="Search deliveries"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    if (page !== "Overview" && page !== "Deliveries")
+                      setPage("Deliveries");
+                  }}
+                />
+                <kbd>⌘ K</kbd>
+              </label>
+            )}
             <button className="demo-badge" onClick={() => setDialog("guide")}>
               <span />
-              Demo <b className="demo-workspace-word">workspace</b>
+              Demo deliveries
             </button>
             <span className="topbar-divider" />
             <button
@@ -492,65 +475,22 @@ export function HaulieApp({
               <Bell size={19} />
               {state.notifications && <i />}
             </button>
-            <button
-              className="top-avatar"
-              onClick={() => setDialog("settings")}
-              aria-label="Account settings"
-            >
-              <Avatar
-                initials={role === "Courier" ? DEMO_COURIER.initials : "AL"}
-                small
-              />
-            </button>
           </div>
         </header>
         <main id="main-content">
           <section className="page-heading">
             <div>
-              <div className="eyebrow">
-                <span className="sun-icon">☀</span>
-                {page === "Overview"
-                  ? "YOUR NEIGHBORHOOD, DELIVERED"
-                  : "THE EVERYDAY DETAILS"}
-              </div>
               <h1>
-                {courierMode
-                  ? "Your next delivery awaits."
-                  : recipientMode
-                    ? "Something good is on its way."
-                    : operatorMode
-                      ? "Keep every handoff moving."
-                      : page === "Overview"
-                        ? "A good day to deliver."
-                        : page === "Deliveries"
-                          ? role === "Courier"
-                            ? "Your deliveries. Your next steps."
-                            : "Every delivery. All right here."
-                          : page === "Couriers"
-                            ? "Good people, going places."
-                            : page === "Wallet"
-                              ? role === "Courier"
-                                ? "Your deliveries, paid off."
-                                : "A little clarity for your balance."
-                              : "Every step, accounted for."}
+                {page === "Overview"
+                  ? courierMode
+                    ? "Find deliveries"
+                    : recipientMode
+                      ? "Incoming deliveries"
+                      : operatorMode
+                        ? "Operations"
+                        : "Overview"
+                  : pageLabel(page)}
               </h1>
-              <p>
-                {courierMode
-                  ? "Find a local delivery, verify for the job, and make someone’s day."
-                  : recipientMode
-                    ? "Track your parcel and confirm when it’s safely in your hands."
-                    : operatorMode
-                      ? "Review exceptions and help deliveries get back on track."
-                      : page === "Overview"
-                        ? "Here’s what’s moving with your business today, Alex."
-                        : page === "Deliveries"
-                          ? "From the first pickup to the final doorstep. Stay in the loop."
-                          : page === "Couriers"
-                            ? "Meet the unique-human verified couriers in your neighborhood."
-                            : page === "Wallet"
-                              ? "Funds reserved before pickup. Courier payment after confirmed delivery."
-                              : "A clear trail of verifications, handoffs, and payments."}
-              </p>
             </div>
             <div className="heading-actions">
               {page === "Wallet" ? (
@@ -577,55 +517,24 @@ export function HaulieApp({
 
           {page === "Overview" && role === "Merchant" && (
             <>
-              <section className="welcome-banner">
-                <div className="welcome-copy">
-                  <span className="mini-label">
-                    <span /> A LITTLE LOCAL. A LOT OF TRUST.
-                  </span>
-                  <h2>
-                    Big on care.
-                    <br />
-                    Light on your to-do list.
-                  </h2>
-                  <p>
-                    A verified human at every handoff.
-                    <br className="mobile-break" /> Payment ready at delivery.
-                  </p>
-                  <button onClick={() => setDialog("guide")}>
-                    See how Haulie works <ArrowUpRight size={16} />
-                  </button>
-                </div>
-                <div className="hero-art">
-                  <ParcelArt />
-                </div>
-                <span className="banner-annotation">
-                  <span className="drawn-arrow">↙</span> a little peace of mind,
-                  <br /> in every parcel
-                </span>
-              </section>
               <div className="stats-grid">
                 <Stat
                   icon={Truck}
                   title="Active deliveries"
                   value={String(active.length).padStart(2, "0")}
-                  note="A few good things on the move"
-                  trend="Live overview"
                   tone="green"
                 />
                 <Stat
                   icon={CircleCheck}
-                  title="Successfully delivered"
+                  title="Delivered"
                   value={String(paid.length).padStart(2, "0")}
-                  note="Made it into the right hands"
-                  trend="Confirmed handoffs"
                   tone="mint"
                 />
                 <Stat
                   icon={LockKeyhole}
-                  title="Funds in escrow"
+                  title="Reserved fees"
                   value={formatMoney(reserved)}
                   unit="USDC"
-                  note="Reserved for your couriers"
                   tone="cream"
                 />
                 <Stat
@@ -633,7 +542,6 @@ export function HaulieApp({
                   title="Courier fees paid"
                   value={formatMoney(paidTotal)}
                   unit="USDC"
-                  note="After a confirmed delivery"
                   tone="blue"
                 />
               </div>
@@ -647,7 +555,6 @@ export function HaulieApp({
                           {state.jobs.length}
                         </span>
                       </h2>
-                      <p>Small journeys. Real-time peace of mind.</p>
                     </div>
                     <button
                       className="text-button"
@@ -667,8 +574,7 @@ export function HaulieApp({
                   />
                   <div className="table-footer">
                     <span>
-                      <span className="green-dot" /> Your demo workspace is up
-                      to date
+                      <span className="green-dot" /> Sample deliveries
                     </span>
                     <span>
                       Showing {Math.min(displayJobs.length, 5)} of{" "}
@@ -678,10 +584,10 @@ export function HaulieApp({
                 </section>
                 <section className="card live-card">
                   <div className="section-header">
-                    <h2>Around the neighborhood</h2>
+                    <h2>Delivery map</h2>
                     <span className="live-label">
                       <span />
-                      LIVE DEMO
+                      Sample route
                     </span>
                   </div>
                   <div className="map-container">
@@ -689,10 +595,6 @@ export function HaulieApp({
                     <div className="map-location">
                       <MapPin size={12} />
                       San Francisco, CA
-                    </div>
-                    <div className="map-floating-badge">
-                      <Bike size={16} />
-                      <span>Good things are moving</span>
                     </div>
                   </div>
                   {spotlight && (
@@ -704,12 +606,6 @@ export function HaulieApp({
                           </span>
                           <h3>{spotlight.destination}</h3>
                         </div>
-                        <span className="eta">
-                          <Clock3 size={13} />
-                          {spotlight.status === "PICKED_UP"
-                            ? "~12 min"
-                            : "Pending"}
-                        </span>
                       </div>
                       <div className="spotlight-courier">
                         <Avatar initials={spotlight.initials || "HC"} small />
@@ -736,36 +632,6 @@ export function HaulieApp({
                   )}
                 </section>
               </div>
-              <section className="trust-strip">
-                <span className="trust-emblem">
-                  <ShieldCheck size={25} />
-                </span>
-                <div className="trust-heading">
-                  <h3>Trust, at every turn.</h3>
-                  <p>Good deliveries have a clear path.</p>
-                </div>
-                <div className="trust-steps">
-                  <span>
-                    <LockKeyhole size={15} />
-                    Funds reserved
-                  </span>
-                  <ChevronRight size={13} />
-                  <span>
-                    <ShieldCheck size={15} />
-                    Freshly verified
-                  </span>
-                  <ChevronRight size={13} />
-                  <span>
-                    <Package size={15} />
-                    Handoff confirmed
-                  </span>
-                  <ChevronRight size={13} />
-                  <span>
-                    <CircleCheck size={15} />
-                    Courier paid
-                  </span>
-                </div>
-              </section>
             </>
           )}
 
@@ -777,7 +643,6 @@ export function HaulieApp({
                     {role === "Courier" ? "My deliveries" : "Your deliveries"}{" "}
                     <span className="subtle-count">{workspaceJobs.length}</span>
                   </h2>
-                  <p>Every parcel has a story. Follow yours.</p>
                 </div>
                 <button
                   className="button button-secondary button-small"
@@ -831,19 +696,23 @@ export function HaulieApp({
                   <div>
                     <h3>
                       {acceptanceReady
-                        ? "You’re ready for your next journey."
+                        ? "Ready to accept"
                         : state.courierEnrolled
-                          ? "Connect your demo payout wallet."
-                          : "Start with your unique-human check."}
+                          ? "Demo setup incomplete"
+                          : "Complete enrollment"}
                     </h3>
                     <p>
                       {state.courierEnrolled
-                        ? "Enrollment is complete. Each delivery still needs a fresh check."
-                        : "Demo enrollment establishes a session for future delivery checks."}
+                        ? "Each delivery requires a new check."
+                        : "Enroll to try the delivery flow."}
                     </p>
                   </div>
                   <div className="readiness-actions">
-                    <a href="/world-sandbox" className="button button-secondary button-small" style={{ textDecoration: "none" }}>
+                    <a
+                      href="/world-sandbox"
+                      className="button button-secondary button-small"
+                      style={{ textDecoration: "none" }}
+                    >
                       <ShieldCheck size={15} /> World sandbox
                     </a>
                     <button
@@ -856,7 +725,7 @@ export function HaulieApp({
                         notify(
                           state.courierEnrolled
                             ? "Demo enrollment reset."
-                            : "Demo enrollment complete. No World ID proof was requested.",
+                            : "Demo enrollment complete.",
                         );
                       }}
                     >
@@ -869,25 +738,7 @@ export function HaulieApp({
                         "Try demo enrollment"
                       )}
                     </button>
-                    <button
-                      className="button button-secondary button-small"
-                      onClick={() => {
-                        save({
-                          ...state,
-                          walletConnected: !state.walletConnected,
-                        });
-                        notify(
-                          state.walletConnected
-                            ? "Demo wallet disconnected."
-                            : "Demo payout wallet connected.",
-                        );
-                      }}
-                    >
-                      <Wallet size={15} />
-                      {state.walletConnected
-                        ? "Demo wallet connected"
-                        : "Connect demo wallet"}
-                    </button>
+                    <SuiWallet compact />
                   </div>
                 </section>
               )}
@@ -906,23 +757,20 @@ export function HaulieApp({
                       <input
                         type="search"
                         aria-label="Search available deliveries"
-                        placeholder="Search by neighborhood, parcel, or reference"
+                        placeholder="Search area or parcel"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                       />
                     </label>
                     <span>
                       <LockKeyhole size={14} />
-                      Only funded, unassigned deliveries
+                      Fees reserved
                     </span>
                   </div>
                   {!acceptanceReady && (
                     <div className="notice courier-setup-notice">
                       <ShieldCheck size={18} />
-                      <p>
-                        Complete demo enrollment and connect your demo payout
-                        wallet above before accepting a delivery.
-                      </p>
+                      <p>Complete demo setup to accept deliveries.</p>
                     </div>
                   )}
                   <div className="offer-grid">
@@ -938,7 +786,7 @@ export function HaulieApp({
                           </span>
                           <span className="badge badge-green">
                             <LockKeyhole size={12} />
-                            Demo funds reserved
+                            Fee reserved
                           </span>
                         </div>
                         <span className="mini-label">
@@ -961,10 +809,7 @@ export function HaulieApp({
                             <small>{j.window}</small>
                           </span>
                         </div>
-                        <p className="offer-policy">
-                          Fresh verification to accept and at pickup. Cancel
-                          before pickup to release the assignment.
-                        </p>
+
                         <div className="offer-actions">
                           <button
                             className="button button-secondary button-small"
@@ -989,15 +834,11 @@ export function HaulieApp({
                   {availableMatches.length === 0 && (
                     <div className="card">
                       <EmptyState
-                        title={
-                          query
-                            ? "No matching deliveries."
-                            : "You’re all caught up."
-                        }
+                        title={query ? "No matches" : "No available deliveries"}
                         text={
                           query
-                            ? "Try a different neighborhood or clear your search."
-                            : "New funded deliveries will appear here. You can create a sample delivery in the merchant workspace."
+                            ? "Try another area or clear your search."
+                            : "Create a sample delivery in the merchant workspace."
                         }
                       />
                     </div>
@@ -1005,9 +846,6 @@ export function HaulieApp({
                   <section className="card courier-active">
                     <div className="section-header">
                       <h2>Your active deliveries</h2>
-                      <span className="badge badge-muted">
-                        Demo courier view
-                      </span>
                     </div>
                     <DeliveryTable jobs={active} onSelect={setSelected} />
                   </section>
@@ -1017,9 +855,8 @@ export function HaulieApp({
                   <div className="info-banner">
                     <ShieldCheck size={20} />
                     <p>
-                      <strong>Unique-human verified.</strong> World ID proves
-                      uniqueness and session control. It does not establish
-                      legal identity, background checks, or parcel condition.
+                      Sample courier profiles. Verification does not include
+                      background checks.
                     </p>
                   </div>
                   <div className="courier-grid">
@@ -1068,7 +905,7 @@ export function HaulieApp({
                         </p>
                         <span className="courier-verification">
                           <ShieldCheck size={15} />
-                          Unique-human verified · demo
+                          Demo verification
                         </span>
                         <div className="courier-card-stats">
                           <span>
@@ -1098,16 +935,12 @@ export function HaulieApp({
           {recipientMode && (
             <section className="card">
               <div className="section-header">
-                <h2>Your incoming parcels</h2>
+                <h2>Incoming parcels</h2>
                 <span className="badge badge-muted">Recipient demo</span>
               </div>
               <div className="info-banner inset-info">
                 <Package size={19} />
-                <p>
-                  In a live delivery, you receive a private, expiring
-                  confirmation link. Here, choose a sample parcel to try the
-                  handoff.
-                </p>
+                <p>Select a parcel to confirm receipt.</p>
               </div>
               <DeliveryTable
                 jobs={state.jobs.filter((j) =>
@@ -1132,7 +965,6 @@ export function HaulieApp({
                   value={String(
                     state.jobs.filter((j) => j.status === "DISPUTED").length,
                   )}
-                  note="Automatic payouts are frozen"
                   tone="cream"
                 />
                 <Stat
@@ -1142,7 +974,6 @@ export function HaulieApp({
                     state.jobs.filter((j) => j.status === "PAYOUT_RETRY")
                       .length,
                   )}
-                  note="Recipient confirmation retained"
                   tone="blue"
                 />
                 <Stat
@@ -1152,7 +983,6 @@ export function HaulieApp({
                     state.jobs.filter((j) => j.status === "DELIVERY_CONFIRMED")
                       .length,
                   )}
-                  note="Ready for demo settlement"
                   tone="green"
                 />
               </div>
@@ -1175,145 +1005,136 @@ export function HaulieApp({
 
           {page === "Wallet" && (
             <>
-              <div className="wallet-grid">
-                <section className="balance-card">
-                  <div className="balance-heading">
-                    <span>
-                      <Wallet size={19} />
-                      {role === "Courier"
-                        ? "Your courier earnings"
-                        : "Your demo wallet"}
-                    </span>
-                    <span className="network-tag">
-                      <span />
-                      SUI · DEMO
-                    </span>
-                  </div>
-                  <span className="balance-label">
-                    {role === "Courier" ? "Total earned" : "Available balance"}
-                  </span>
-                  <div className="big-balance">
-                    {formatMoney(
-                      role === "Courier"
-                        ? paidTotal
-                        : Math.max(0, 250 - reserved - paidTotal),
-                    )}
-                    <span>USDC</span>
-                  </div>
-                  <p>
-                    {role === "Courier"
-                      ? "Your completed deliveries, paid to you."
-                      : "For the next good thing you send."}
-                  </p>
-                  {role === "Courier" ? (
-                    <p className="courier-wallet-address">
-                      <Wallet size={15} />
-                      {DEMO_COURIER.payoutWallet}
-                    </p>
-                  ) : (
-                    <button
-                      className="button button-light"
-                      onClick={() => setDialog("wallet")}
-                    >
-                      <Plus size={16} />
-                      Funding details
-                    </button>
-                  )}
-                  <div className="balance-decoration">
-                    <Globe2 size={190} />
-                  </div>
-                </section>
-                <section className="card wallet-summary">
-                  <h2>Where your funds are</h2>
-                  <div>
-                    <span className="wallet-summary-icon">
-                      <LockKeyhole size={20} />
-                    </span>
-                    <span>
-                      <strong>Reserved in escrow</strong>
-                      <small>Held for {active.length} active deliveries</small>
-                    </span>
-                    <b>
-                      {formatMoney(reserved)} <small>USDC</small>
-                    </b>
-                  </div>
-                  <div>
-                    <span className="wallet-summary-icon">
-                      <ArrowUpRight size={20} />
-                    </span>
-                    <span>
-                      <strong>
-                        {role === "Courier"
-                          ? "Paid to you"
-                          : "Paid to couriers"}
-                      </strong>
-                      <small>After recipient confirmation</small>
-                    </span>
-                    <b>
-                      {formatMoney(paidTotal)} <small>USDC</small>
-                    </b>
-                  </div>
-                  <p>
-                    <ShieldCheck size={14} />
-                    Demo balances only. No wallet or real funds connected.
-                  </p>
-                </section>
-              </div>
-              <section className="card">
-                <div className="section-header">
-                  <div>
-                    <h2>Your payment history</h2>
-                    <p>A clear record, from reserved to released.</p>
-                  </div>
-                  <span className="badge badge-muted">Demo USDC</span>
-                </div>
-                <div className="payment-list">
-                  {workspaceJobs.map((j) => (
-                    <button
-                      key={j.id}
-                      className="payment-row"
-                      onClick={() => setSelected(j.id)}
-                    >
-                      <span
-                        className={`payment-icon ${j.status === "PAID" ? "payment-out" : ""}`}
-                      >
-                        {j.status === "PAID" ? (
-                          <ArrowUpRight size={19} />
-                        ) : j.status === "REFUNDED" ? (
-                          <ArrowDownLeft size={19} />
-                        ) : (
-                          <LockKeyhole size={17} />
-                        )}
+              <SuiWallet />
+              <details className="demo-ledger">
+                <summary>
+                  Demo delivery ledger <span>Simulated USDC</span>
+                  <ChevronDown size={16} />
+                </summary>
+                <div className="wallet-grid">
+                  <section className="balance-card">
+                    <div className="balance-heading">
+                      <span>
+                        <Wallet size={19} />
+                        {role === "Courier" ? "Demo earnings" : "Demo balance"}
                       </span>
-                      <span className="payment-title">
-                        <strong>
-                          {j.status === "PAID"
-                            ? "Courier payout"
-                            : j.status === "REFUNDED"
-                              ? "Escrow refunded"
-                              : "Delivery escrow"}
-                        </strong>
+                      <span className="network-tag">
+                        <span />
+                        SIMULATED
+                      </span>
+                    </div>
+                    <span className="balance-label">
+                      {role === "Courier"
+                        ? "Total earned"
+                        : "Available balance"}
+                    </span>
+                    <div className="big-balance">
+                      {formatMoney(
+                        role === "Courier"
+                          ? paidTotal
+                          : Math.max(0, 250 - reserved - paidTotal),
+                      )}
+                      <span>USDC</span>
+                    </div>
+                    <p>
+                      {role === "Courier"
+                        ? "Simulated courier payouts."
+                        : "For sample deliveries."}
+                    </p>
+                  </section>
+                  <section className="card wallet-summary">
+                    <h2>Delivery fees</h2>
+                    <div>
+                      <span className="wallet-summary-icon">
+                        <LockKeyhole size={20} />
+                      </span>
+                      <span>
+                        <strong>Reserved in escrow</strong>
                         <small>
-                          {j.id} · {j.title}
+                          Held for {active.length} active deliveries
                         </small>
                       </span>
-                      <span className="payment-status">
-                        {j.status === "PAID"
-                          ? "Demo completed"
-                          : j.status === "REFUNDED"
-                            ? "Demo returned"
-                            : j.status === "DISPUTED"
-                              ? "Frozen"
-                              : "Reserved"}
+                      <b>
+                        {formatMoney(reserved)} <small>USDC</small>
+                      </b>
+                    </div>
+                    <div>
+                      <span className="wallet-summary-icon">
+                        <ArrowUpRight size={20} />
                       </span>
-                      <strong>
-                        {formatMoney(j.fee)} <small>USDC</small>
-                      </strong>
-                      <ChevronRight size={16} />
-                    </button>
-                  ))}
+                      <span>
+                        <strong>
+                          {role === "Courier"
+                            ? "Paid to you"
+                            : "Paid to couriers"}
+                        </strong>
+                        <small>After recipient confirmation</small>
+                      </span>
+                      <b>
+                        {formatMoney(paidTotal)} <small>USDC</small>
+                      </b>
+                    </div>
+                    <p>
+                      <ShieldCheck size={14} />
+                      Simulated funds · no on-chain payments.
+                    </p>
+                  </section>
                 </div>
-              </section>
+                <section className="card">
+                  <div className="section-header">
+                    <div>
+                      <h2>Payment history</h2>
+                    </div>
+                    <span className="badge badge-muted">Demo USDC</span>
+                  </div>
+                  <div className="payment-list">
+                    {workspaceJobs.map((j) => (
+                      <button
+                        key={j.id}
+                        className="payment-row"
+                        onClick={() => setSelected(j.id)}
+                      >
+                        <span
+                          className={`payment-icon ${j.status === "PAID" ? "payment-out" : ""}`}
+                        >
+                          {j.status === "PAID" ? (
+                            <ArrowUpRight size={19} />
+                          ) : j.status === "REFUNDED" ? (
+                            <ArrowDownLeft size={19} />
+                          ) : (
+                            <LockKeyhole size={17} />
+                          )}
+                        </span>
+                        <span className="payment-title">
+                          <strong>
+                            {j.status === "PAID"
+                              ? "Courier payout"
+                              : j.status === "REFUNDED"
+                                ? "Escrow refunded"
+                                : "Delivery escrow"}
+                          </strong>
+                          <small>
+                            {j.id} · {j.title}
+                          </small>
+                        </span>
+                        <span className="payment-status">
+                          {j.status === "PAID"
+                            ? "Demo completed"
+                            : j.status === "REFUNDED"
+                              ? "Demo returned"
+                              : j.status === "DISPUTED"
+                                ? "Frozen"
+                                : "Reserved"}
+                        </span>
+                        <strong>
+                          {formatMoney(j.fee)} <small>USDC</small>
+                        </strong>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </details>
             </>
           )}
 
@@ -1321,8 +1142,7 @@ export function HaulieApp({
             <section className="card activity-card">
               <div className="section-header">
                 <div>
-                  <h2>The delivery journal</h2>
-                  <p>Who confirmed what, and when. Always part of the story.</p>
+                  <h2>Delivery activity</h2>
                 </div>
                 <button
                   className="button button-secondary button-small"
@@ -1371,15 +1191,6 @@ export function HaulieApp({
               </div>
             </section>
           )}
-          <footer className="page-footer">
-            <span>
-              <Brand small />
-              Made for the last mile. And the people in it.
-            </span>
-            <span>
-              <Leaf size={13} /> A little closer, together.
-            </span>
-          </footer>
         </main>
       </div>
 
@@ -1406,47 +1217,37 @@ export function HaulieApp({
             save({ ...state, jobs: [job, ...state.jobs] });
             setDialog(null);
             setSelected(job.id);
-            notify(
-              "Delivery created with demo funds reserved. It’s ready for a courier.",
-            );
+            notify("Delivery created. Fee reserved.");
           }}
         />
       )}
       {dialog === "guide" && (
         <Modal
-          title="Good deliveries start with trust."
-          subtitle="Welcome to the Haulie demo"
+          title="How it works"
+          subtitle="Demo deliveries"
           onClose={() => setDialog(null)}
         >
-          <div className="guide-intro">
-            <Brand />
-            <p>
-              A verified human at every handoff.
-              <br />
-              Payment ready at delivery.
-            </p>
-          </div>
           <div className="guide-steps">
             {[
               {
                 icon: LockKeyhole,
                 title: "Fund it first",
-                text: "A merchant creates a delivery and reserves the courier fee before it is offered.",
+                text: "Create a delivery and reserve the fee.",
               },
               {
                 icon: ShieldCheck,
-                title: "A fresh check. Every time.",
-                text: "The courier completes a new World ID session check to accept, then another at pickup.",
+                title: "Verify the courier",
+                text: "The courier verifies at acceptance and pickup.",
               },
               {
                 icon: Package,
-                title: "Hand it over, together",
-                text: "The merchant confirms pickup. The recipient independently confirms delivery.",
+                title: "Confirm handoffs",
+                text: "The merchant confirms pickup; the recipient confirms receipt.",
               },
               {
                 icon: Wallet,
-                title: "Delivered. Then paid.",
-                text: "Only the confirmed handoff permits settlement to the courier’s snapshotted wallet.",
+                title: "Release payment",
+                text: "Pay the assigned courier after confirmed delivery.",
               },
             ].map(({ icon: Icon, title, text }, i) => (
               <div key={title}>
@@ -1462,18 +1263,11 @@ export function HaulieApp({
           <div className="notice">
             <Sparkles size={19} />
             <p>
-              <strong>You’re in an interactive demo.</strong> Deliveries are
-              saved in this browser. Checks and payments are simulated; no real
-              World ID proof, wallet, or funds are used. Switch workspaces to
-              explore all four roles.
+              Deliveries and payouts are simulated. World verification and the
+              Sui testnet wallet are available separately.
             </p>
           </div>
-          <p className="fine-print">
-            World ID establishes unique humanity and session control, not legal
-            identity, background screening, location, or parcel condition.
-            Haulie’s live model is operator-attested delivery with on-chain
-            escrow.
-          </p>
+
           <button
             className="button button-primary full-width"
             onClick={() => {
@@ -1487,8 +1281,8 @@ export function HaulieApp({
       )}
       {dialog === "notifications" && (
         <Modal
-          title="You’re in the loop."
-          subtitle="Your notifications"
+          title="Notifications"
+
           onClose={() => setDialog(null)}
         >
           <div className="notification-list">
@@ -1513,13 +1307,6 @@ export function HaulieApp({
               </button>
             ))}
           </div>
-          <div className="notice">
-            <Bell size={18} />
-            <p>
-              These notifications reflect your local demo deliveries. No
-              external messages are sent.
-            </p>
-          </div>
         </Modal>
       )}
       {dialog === "settings" && (
@@ -1532,26 +1319,16 @@ export function HaulieApp({
       )}
       {dialog === "wallet" && (
         <Modal
-          title="A wallet with a clear purpose."
-          subtitle="Demo funding details"
+          title="Sui wallet"
+          subtitle="Sui testnet wallet"
           onClose={() => setDialog(null)}
         >
-          <div className="wallet-modal-icon">
-            <Wallet size={36} />
-          </div>
+          <SuiWallet />
           <p className="modal-description">
-            This workspace starts with 250 demo USDC. Creating a delivery
-            reserves its fee; a confirmed handoff makes it available for a
-            simulated courier payout.
+            Your Sui wallet sends real testnet transactions. The delivery
+            workspace uses a separate simulated balance until live escrow is
+            configured.
           </p>
-          <div className="notice">
-            <LockKeyhole size={19} />
-            <p>
-              <strong>No real wallet is connected.</strong> Live funding
-              requires a configured Sui testnet escrow and native testnet USDC.
-              There is no deposit address in this demo.
-            </p>
-          </div>
           <button
             className="button button-primary full-width"
             onClick={() => {
@@ -1583,16 +1360,12 @@ function Stat({
   title,
   value,
   unit,
-  note,
-  trend,
   tone,
 }: {
   icon: LucideIcon;
   title: string;
   value: string;
   unit?: string;
-  note: string;
-  trend?: string;
   tone: string;
 }) {
   return (
@@ -1606,26 +1379,7 @@ function Stat({
       <div className="stat-value">
         {value}
         {unit && <small>{unit}</small>}
-        {trend && (
-          <svg className="sparkline" viewBox="0 0 90 30" aria-hidden="true">
-            <path
-              d={
-                tone === "green"
-                  ? "M1 27 12 23 21 25 30 13 39 17 49 11 58 13 69 4 78 8 88 1"
-                  : "M1 25 11 25 21 20 32 22 42 13 54 14 63 7 77 10 89 3"
-              }
-              fill="none"
-              stroke={tone === "green" ? "#548563" : "#8daa72"}
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        )}
       </div>
-      <p>
-        {trend && <span className="tiny-dot" />}
-        {note}
-      </p>
     </section>
   );
 }
@@ -1757,8 +1511,8 @@ function DeliveryTable({
     </div>
   ) : (
     <EmptyState
-      title="A little breathing room."
-      text="No deliveries match this view. Try another filter, or create a new delivery."
+      title="No deliveries"
+      text="Try another filter or create a delivery."
     />
   );
 }
@@ -1809,9 +1563,7 @@ function CreateDelivery({
   }
   return (
     <Modal
-      title={
-        step === 1 ? "Let’s get it there." : "One little check before it goes."
-      }
+      title={step === 1 ? "New delivery" : "Review delivery"}
       subtitle={`NEW DELIVERY · STEP ${step} OF 2`}
       onClose={onClose}
     >
@@ -1930,9 +1682,7 @@ function CreateDelivery({
             </label>
           </div>
           <p className="fine-print">
-            {formatMoney(available)} demo USDC available. Small, legal,
-            nonhazardous parcels only. Use sample addresses; details stay in
-            this browser.
+            {formatMoney(available)} demo USDC available. Use sample addresses.
           </p>
           <button type="submit" className="button button-primary full-width">
             Review delivery <ArrowRight size={17} />
@@ -1966,18 +1716,14 @@ function CreateDelivery({
             </div>
           </div>
           <div className="review-total">
-            <span>Courier fee, reserved upfront</span>
+            <span>Courier fee</span>
             <strong>
               {formatMoney(Number(fee))} <small>USDC</small>
             </strong>
           </div>
           <div className="notice">
             <LockKeyhole size={18} />
-            <p>
-              This fee is simulated. A courier must complete a fresh check
-              before accepting. Unassigned deliveries can be cancelled for a
-              full demo refund.
-            </p>
+            <p>Simulated fee. Cancel before assignment for a full refund.</p>
           </div>
           <div className="modal-actions">
             <button
@@ -2009,11 +1755,7 @@ function SettingsModal({
 }) {
   const [resetConfirm, setResetConfirm] = useState(false);
   return (
-    <Modal
-      title="Make yourself at home."
-      subtitle="Workspace settings"
-      onClose={onClose}
-    >
+    <Modal title="Settings" subtitle="Workspace settings" onClose={onClose}>
       <form
         className="delivery-form"
         onSubmit={(e) => {
