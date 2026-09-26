@@ -1,6 +1,6 @@
 # Haulie
 
-**Haulie turns every local parcel into an on-chain escrow object whose custody handoffs and courier fee settle through one state machine on Sui, with a fresh World ID check from the courier at acceptance and pickup.**
+**Haulie is local delivery where couriers re-verify with World ID at every handoff and get paid the moment a parcel arrives, from a per-parcel escrow on Sui that records the parcel's custody on-chain.**
 
 **Deployed app:** https://haulie-chi.vercel.app · [Courier workspace](https://haulie-chi.vercel.app/courier) · [On-chain custody](https://haulie-chi.vercel.app/custody)
 
@@ -8,19 +8,40 @@
 
 - Martin Liu: GitHub [@lopkiloinm](https://github.com/lopkiloinm)
 
-## Parcels as on-chain assets (Curvegrid: RWA tokenization)
+## Why Haulie
 
-A delivery is a real-world asset in motion: a parcel whose holder changes and a courier fee that should move only when custody rules are satisfied. Haulie represents each parcel as a shared `Escrow` object on Sui ([`contracts/haulie/sources/escrow.move`](contracts/haulie/sources/escrow.move)). The object holds the fee and enforces its lifecycle:
+**Identity checks are heavy and repetitive.** Delivery and gig platforms ask couriers to upload a driver's license or passport, then keep proving it's really them with selfie checks, because accounts get shared and rented: one verified person signs up and someone else does the deliveries. Every check collects sensitive personal data and adds friction, yet it only proves that someone passed a check at some point, not that the same person is doing this job now.
 
-- **Custody tracking:** funded (merchant holds the parcel), assigned, picked up (courier holds it), delivery confirmed (recipient holds it).
-- **Programmable controls:** only the operator capability can advance custody; the payout wallet is fixed at assignment; the merchant can freeze funds with a dispute without the operator; release and refund are exactly-once and terminal.
-- **Settlement:** release pays the snapshotted courier wallet; refund returns funds to the merchant.
-- **Provenance:** every transition emits an `EscrowEvent`, so the parcel's complete history is public and verifiable.
-- **Privacy:** the chain stores only a SHA-256 job reference and public wallet addresses. Street addresses, contacts, and World identifiers stay off-chain.
+World ID answers that recurring question ("is this the same unique, verified human?") without photographing a document again. The courier approves a fresh World ID check on their phone in seconds, and Haulie learns only that the same verified human is present: no name, document number, or photo. Haulie asks for it where it matters, at acceptance and again at pickup, so a borrowed account can't pass those gates. It doesn't replace legal ID where the law requires one; it removes repeated document checks from the everyday workflow.
 
-[/custody](https://haulie-chi.vercel.app/custody) reads those events **live from Sui testnet** through Sui GraphQL ([`src/lib/sui/custody.ts`](src/lib/sui/custody.ts)). It groups them per parcel, links each hashed job reference to its sample order, and shows where the parcel and the fee currently are, with SuiScan links for every transaction. New escrows for the package appear automatically; nothing on the page is hard-coded.
+**Payouts are slow and costly.** Couriers are usually paid weekly, bank transfers take a few more business days, and getting paid sooner usually costs an instant-cashout fee. Card and bank rails make small, frequent payouts expensive, so platforms batch them.
 
-The package is published on testnet at [`0xd5912d65…ce5e`](https://suiscan.xyz/testnet/object/0xd5912d65474abd188664416a95a539da959aa7ca14cc746b7ddc21ca0becce5e). Three sample parcels have run through it: HL-1044 (delivered and paid), HL-1043 (disputed after delivery, then resolved and paid), and HL-1045 (picked up, in transit). Their fees are **testnet SUI standing in for USDC**, because the demo wallets hold no testnet USDC. The contract is coin-generic, and a native testnet USDC configuration (`0xcede1ede…dc65`) is also published for the live backend.
+On Sui, each delivery has its own escrow. When the recipient confirms receipt, the fee goes straight to the courier's wallet in one transaction that finalizes in about a second. Gas is a fraction of a cent (our confirm-and-release transaction used about 0.002 testnet SUI), so paying per delivery is cheap enough to do every time, and Sui's throughput supports marketplace volume. There's no payout schedule, no three-day wait, and no fee for getting paid now. Merchants lock funds before the job is offered and can refund an unassigned job from their own wallet.
+
+## How it works
+
+1. The merchant locks the courier fee in a Sui escrow before the job is offered.
+2. The courier accepts only after a fresh World ID check.
+3. At pickup, the courier verifies again with the same World identity, and the merchant signs the handoff with the wallet that funded the escrow.
+4. The recipient confirms receipt, and the escrow pays the courier's wallet immediately.
+
+The demo runs around Toranomon Hills Forum in Tokyo. See [Deliver with a real SUI fee](#deliver-with-a-real-sui-fee) to try it.
+
+## Parcels as on-chain real-world assets (Curvegrid: supply chain RWA)
+
+A delivery is a real-world asset in motion: a physical parcel whose holder changes, plus money that should move only when custody rules are met. Haulie represents each shipment as its own shared `Escrow` object on Sui ([`contracts/haulie/sources/escrow.move`](contracts/haulie/sources/escrow.move)). That object is the parcel's digital twin: it holds the value tied to the shipment (the courier fee), records who holds the parcel, and enforces what can happen next.
+
+- **Movement and custody:** each handoff is an on-chain transition. Funded means the merchant holds the parcel, picked up means the courier does, and delivery confirmed means the recipient does.
+- **Provenance:** every transition emits an `EscrowEvent` with its transaction, signer, and wallet, giving each parcel a public, tamper-evident chain of custody that anyone can audit on SuiScan without trusting Haulie's database.
+- **Settlement:** the fee can't be released until pickup and delivery are confirmed, and release pays exactly the courier wallet snapshotted at assignment, once.
+- **Programmable asset controls:** only the operator capability can advance custody; the payout wallet can't be redirected after assignment; the merchant can freeze funds with a dispute or refund an unassigned job without the operator; release and refund are exactly-once and terminal. Off-chain, each custody step needs its own approval: a fresh World ID check, the funding merchant's wallet signature, and a one-time recipient token.
+- **Compliance-aware privacy:** the chain stores only a SHA-256 job reference and public wallet addresses. Street addresses, contacts, photos, and World identifiers stay off-chain.
+
+This matches Curvegrid's **Supply Chain Assets** idea (track movement, custody, provenance, and settlement by representing commercial goods on-chain) and its **Programmable Asset Controls** idea (permissions and approval workflows around how an asset moves).
+
+[/custody](https://haulie-chi.vercel.app/custody) reads those events **live from Sui testnet** through Sui GraphQL ([`src/lib/sui/custody.ts`](src/lib/sui/custody.ts)). It groups them per parcel, links each hashed job reference to its order, and shows where the parcel and the fee are now, with SuiScan links for every transaction. New escrows appear automatically; nothing on the page is hard-coded.
+
+The package is published on testnet at [`0xd5912d65…ce5e`](https://suiscan.xyz/testnet/object/0xd5912d65474abd188664416a95a539da959aa7ca14cc746b7ddc21ca0becce5e). Parcels that have moved through it include HL-1044 (delivered and paid), HL-1043 (disputed after delivery, then resolved and paid), HL-1045 (picked up, in transit), a merchant refund, and HL-1046, a live delivery completed in the app and paid out on Sui. Fees are **testnet SUI standing in for USDC**, because the demo wallets hold no testnet USDC. The contract is coin-generic, and a native testnet USDC configuration (`0xcede1ede…dc65`) is also published for the live backend.
 
 This is **operator-attested delivery**: the chain enforces the order of custody and payment and records who authorized each step, but it cannot prove that a physical handoff happened. Haulie's backend attests to those handoffs after World ID and merchant or recipient confirmations.
 
