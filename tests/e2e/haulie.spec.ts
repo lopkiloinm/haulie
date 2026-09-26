@@ -63,18 +63,18 @@ test("new delivery follows every independent verification, handoff, and payment 
     .fill("A carefully tested care package");
   await dialog
     .getByLabel("Pickup address", { exact: true })
-    .fill("450 Hayes St");
+    .fill("1-23-3 Toranomon");
   await dialog
     .getByLabel("Neighborhood", { exact: true })
     .nth(0)
-    .fill("Hayes Valley");
+    .fill("Toranomon Hills Forum");
   await dialog
     .getByLabel("Delivery address", { exact: true })
-    .fill("890 Valencia St");
+    .fill("3-chome Shinbashi");
   await dialog
     .getByLabel("Neighborhood", { exact: true })
     .nth(1)
-    .fill("Mission District");
+    .fill("Shinbashi");
   await dialog.getByLabel("Recipient name").fill("Taylor Example");
   await dialog.getByLabel("Courier fee (USDC)").fill("6.25");
   await dialog
@@ -83,9 +83,9 @@ test("new delivery follows every independent verification, handoff, and payment 
   await expect(
     dialog.getByRole("heading", { name: "Review delivery" }),
   ).toBeVisible();
-  await expect(dialog.getByText("450 Hayes St", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("1-23-3 Toranomon", { exact: true })).toBeVisible();
   await expect(
-    dialog.getByText("890 Valencia St", { exact: true }),
+    dialog.getByText("3-chome Shinbashi", { exact: true }),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Create delivery", exact: true })
