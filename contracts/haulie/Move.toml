@@ -1,0 +1,7 @@
+[package]
+name = "haulie"
+edition = "2024.beta"
+license = "MIT"
+
+[addresses]
+haulie = "0x0"
