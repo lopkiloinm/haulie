@@ -974,7 +974,7 @@ export function HaulieApp({
               <SuiWallet />
               <details className="demo-ledger">
                 <summary>
-                  Delivery ledger <span>Simulated USDC</span>
+                  Delivery ledger <span>Test balances</span>
                   <ChevronDown size={16} />
                 </summary>
                 <div className="wallet-grid">
@@ -982,13 +982,7 @@ export function HaulieApp({
                     <div className="balance-heading">
                       <span>
                         <Wallet size={19} />
-                        {role === "Courier"
-                          ? "Simulated earnings"
-                          : "Simulated balance"}
-                      </span>
-                      <span className="network-tag">
-                        <span />
-                        SIMULATED
+                        {role === "Courier" ? "Earnings" : "Balance"}
                       </span>
                     </div>
                     <span className="balance-label">
@@ -1006,7 +1000,7 @@ export function HaulieApp({
                     </div>
                     <p>
                       {role === "Courier"
-                        ? "Simulated courier payouts."
+                        ? "From your sample deliveries."
                         : "For sample deliveries."}
                     </p>
                   </section>
@@ -1044,7 +1038,9 @@ export function HaulieApp({
                     </div>
                     <p>
                       <ShieldCheck size={14} />
-                      Simulated funds · no on-chain payments.
+                      <Link href="/custody">
+                        See real escrow settlement on Sui
+                      </Link>
                     </p>
                   </section>
                 </div>
@@ -1053,7 +1049,6 @@ export function HaulieApp({
                     <div>
                       <h2>Payment history</h2>
                     </div>
-                    <span className="badge badge-muted">Simulated USDC</span>
                   </div>
                   <div className="payment-list">
                     {workspaceJobs.map((j) => (
