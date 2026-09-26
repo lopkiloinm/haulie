@@ -14,7 +14,9 @@ test("sandbox never treats a success query parameter as verified identity", asyn
     page.getByRole("button", { name: "Accept with World sandbox" }),
   ).toBeDisabled();
   await expect(
-    page.getByText("World verified your fresh sign-in.", { exact: false }),
+    page.getByText("Delivery accepted. Verify again at pickup.", {
+      exact: false,
+    }),
   ).toHaveCount(0);
   await expect(
     page.getByText("Available to accept", { exact: true }),

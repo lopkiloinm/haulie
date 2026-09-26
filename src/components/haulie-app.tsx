@@ -26,6 +26,8 @@ import {
   CircleHelp,
   Clock3,
   FileText,
+  Globe2,
+  Leaf,
   History,
   LayoutDashboard,
   LockKeyhole,
@@ -65,8 +67,7 @@ import {
 } from "@/lib/demo";
 
 type Page = "Overview" | "Deliveries" | "Couriers" | "Wallet" | "Activity";
-type Dialog =
-  "create" | "guide" | "notifications" | "settings" | "wallet" | null;
+type Dialog = "create" | "guide" | "notifications" | "settings" | null;
 const NAV: { label: Page; icon: LucideIcon }[] = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Deliveries", icon: Package },
@@ -269,7 +270,7 @@ export function HaulieApp({
     return {
       Overview: "Find deliveries",
       Deliveries: "My deliveries",
-      Wallet: "Earnings",
+      Wallet: "Wallet",
       Activity: "Activity",
       Couriers: "Couriers",
     }[label];
@@ -356,9 +357,7 @@ export function HaulieApp({
               {role === "Courier" ? <Bike size={19} /> : <Store size={19} />}
             </span>
             <span>
-              <strong>
-                {role === "Merchant" ? state.businessName : `${role} workspace`}
-              </strong>
+              <strong>{role === "Merchant" ? state.businessName : role}</strong>
               <small>{role} account</small>
             </span>
             <ChevronDown size={15} />
@@ -403,6 +402,11 @@ export function HaulieApp({
               )}
             </button>
           ))}
+          <a className="nav-item" href="/world-sandbox">
+            <ShieldCheck size={20} />
+            <span>World ID</span>
+            <ArrowUpRight size={15} />
+          </a>
         </nav>
         <div className="sidebar-bottom">
           <button className="nav-item" onClick={() => setDialog("guide")}>
@@ -499,7 +503,7 @@ export function HaulieApp({
                   onClick={downloadReport}
                 >
                   <ArrowDownToLine size={17} />
-                  Export statement
+                  Export demo ledger
                 </button>
               ) : (
                 role === "Merchant" && (
@@ -708,13 +712,6 @@ export function HaulieApp({
                     </p>
                   </div>
                   <div className="readiness-actions">
-                    <a
-                      href="/world-sandbox"
-                      className="button button-secondary button-small"
-                      style={{ textDecoration: "none" }}
-                    >
-                      <ShieldCheck size={15} /> World sandbox
-                    </a>
                     <button
                       className="button button-secondary button-small"
                       onClick={() => {
@@ -738,7 +735,6 @@ export function HaulieApp({
                         "Try demo enrollment"
                       )}
                     </button>
-                    <SuiWallet compact />
                   </div>
                 </section>
               )}
@@ -762,10 +758,6 @@ export function HaulieApp({
                         onChange={(event) => setQuery(event.target.value)}
                       />
                     </label>
-                    <span>
-                      <LockKeyhole size={14} />
-                      Fees reserved
-                    </span>
                   </div>
                   {!acceptanceReady && (
                     <div className="notice courier-setup-notice">
@@ -1316,28 +1308,6 @@ export function HaulieApp({
           notify={notify}
           onClose={() => setDialog(null)}
         />
-      )}
-      {dialog === "wallet" && (
-        <Modal
-          title="Sui wallet"
-          subtitle="Sui testnet wallet"
-          onClose={() => setDialog(null)}
-        >
-          <SuiWallet />
-          <p className="modal-description">
-            Your Sui wallet sends real testnet transactions. The delivery
-            workspace uses a separate simulated balance until live escrow is
-            configured.
-          </p>
-          <button
-            className="button button-primary full-width"
-            onClick={() => {
-              setDialog("create");
-            }}
-          >
-            Create a demo delivery <Plus size={17} />
-          </button>
-        </Modal>
       )}
       {toast && (
         <div className="toast" role="status">

@@ -17,13 +17,13 @@ async function storedDelivery(page: Page, id = offerId) {
 
 async function completeProof(dialog: Locator) {
   await expect(
-    dialog.getByRole("heading", { name: "Same human. New handoff." }),
+    dialog.getByRole("heading", { name: "Verify this delivery" }),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Simulate fresh verification", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "Same human. New handoff." }),
+    dialog.getByRole("heading", { name: "Verify this delivery" }),
   ).toBeHidden();
 }
 
@@ -67,13 +67,13 @@ test("courier discovers a funded offer and accepts it only after a fresh check",
   await openCourierWorkspace(page);
   await expect(page).toHaveURL(/\/courier$/);
   await expect(
-    page.getByRole("heading", { name: "Your next delivery awaits." }),
+    page.getByRole("heading", { name: "Find deliveries" }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Available deliveries", exact: true }),
   ).toBeVisible();
   const offer = page.getByRole("article", { name: offerTitle, exact: true });
-  await expect(offer).toContainText("Demo funds reserved");
+  await expect(offer).toContainText("Fee reserved");
   await expect(offer).toContainText("Hayes Valley");
   await expect(offer).toContainText("SoMa");
   await expect(offer).toContainText("5.50");
@@ -98,9 +98,7 @@ test("courier discovers a funded offer and accepts it only after a fresh check",
     .click();
   dialog = page.getByRole("dialog", { name: offerTitle, exact: true });
   await expect(
-    dialog.getByText(
-      "This simulator does not request a World proof.",
-    ),
+    dialog.getByText("This simulator does not request a World proof."),
   ).toBeVisible();
   expect((await storedDelivery(page)).status).toBe("FUNDED");
   expect((await storedDelivery(page)).courier).toBeUndefined();
@@ -145,13 +143,18 @@ test("courier discovers a funded offer and accepts it only after a fresh check",
       }),
     ).toHaveCount(0);
 
-  for (const section of ["Earnings", "Activity"]) {
+  for (const section of ["Wallet", "Activity"]) {
     await navigateCourier(page, section);
+    if (section === "Wallet")
+      await page.getByText("Demo delivery ledger", { exact: false }).click();
     for (const ownDelivery of [offerId, "HL-1048", "HL-1044"])
       await expect(
-        page.getByRole("main").getByRole("button", {
-          name: new RegExp(ownDelivery),
-        }).first(),
+        page
+          .getByRole("main")
+          .getByRole("button", {
+            name: new RegExp(ownDelivery),
+          })
+          .first(),
       ).toBeVisible();
     for (const otherCourier of ["HL-1047", "HL-1045", "HL-1043"])
       await expect(
@@ -179,19 +182,21 @@ test("courier cannot verify pickup or cancel another courier's assignment", asyn
   await page
     .getByRole("button", { name: "View delivery HL-1047", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", { name: "Fresh blooms for Olivia", exact: true });
+  const dialog = page.getByRole("dialog", {
+    name: "Fresh blooms for Olivia",
+    exact: true,
+  });
   await dialog.getByRole("button", { name: "Courier", exact: true }).click();
-  await expect(
-    dialog.getByText(/This delivery is assigned to Sam Rivera/),
-  ).toBeVisible();
-  await expect(
-    dialog.getByText(/You’re viewing as Jamie Chen; only the assigned courier/),
-  ).toBeVisible();
+  await expect(dialog.getByText(/Assigned to Sam Rivera/)).toBeVisible();
+  await expect(dialog.getByText(/You’re viewing as Jamie Chen/)).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "Verify for this pickup", exact: true }),
   ).toHaveCount(0);
   await expect(
-    dialog.getByRole("button", { name: "Cancel assignment before pickup", exact: true }),
+    dialog.getByRole("button", {
+      name: "Cancel assignment before pickup",
+      exact: true,
+    }),
   ).toHaveCount(0);
   expect(await storedDelivery(page, "HL-1047")).toEqual(original);
 });
@@ -270,7 +275,10 @@ test("courier can inspect offers, enroll in the demo, and open a real Sui wallet
     .getByRole("button", { name: "Try demo enrollment", exact: true })
     .click();
   await expect(accept).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Connect Sui wallet", exact: true })).toBeVisible();
+  await navigateCourier(page, "Wallet");
+  await expect(
+    page.getByRole("button", { name: "Connect Sui wallet", exact: true }),
+  ).toBeVisible();
   expect((await storedDelivery(page)).status).toBe("FUNDED");
 });
 

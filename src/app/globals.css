@@ -5111,3 +5111,244 @@ h1 {
     width: 13px;
   }
 }
+
+/* A compact workspace: one heading, quiet metrics, and actions close to content. */
+.main-shell #main-content {
+  padding-top: 28px;
+  padding-bottom: 32px;
+}
+.page-heading {
+  align-items: center;
+  min-height: 42px;
+  margin-bottom: 24px;
+}
+.page-heading h1 {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+  padding: 0;
+}
+.heading-actions {
+  position: static;
+  padding: 0;
+}
+.sidebar-bottom {
+  padding-top: 24px;
+}
+.sidebar .profile {
+  cursor: default;
+}
+.sidebar .role-menu p {
+  letter-spacing: 0;
+  text-transform: none;
+}
+.stats-grid {
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  padding: 18px 20px;
+}
+.stat-top {
+  color: #647060;
+}
+.stat-value {
+  margin-top: 10px;
+  line-height: 1.25;
+}
+.overview-grid {
+  align-items: start;
+}
+.section-header {
+  min-height: 64px;
+}
+.live-label {
+  letter-spacing: 0;
+  font-size: 10px;
+}
+.live-label > span {
+  display: none;
+}
+.courier-readiness {
+  padding: 18px 20px;
+  gap: 16px;
+  margin-bottom: 24px;
+  background: #fff;
+}
+.courier-readiness h3 {
+  font-size: 14px;
+}
+.courier-readiness p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.readiness-actions {
+  margin-left: auto;
+}
+.marketplace-tools {
+  gap: 12px;
+}
+.offer-actions {
+  margin-top: 20px;
+}
+.demo-ledger {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 20px 20px;
+}
+.demo-ledger:not([open]) {
+  padding-bottom: 0;
+}
+.demo-ledger > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  list-style: none;
+  cursor: pointer;
+  font-weight: 550;
+  padding: 20px 0;
+}
+.demo-ledger > summary::-webkit-details-marker {
+  display: none;
+}
+.demo-ledger > summary span {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: #7a8475;
+}
+.demo-ledger[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.demo-ledger .balance-card {
+  background: #f2f5ee;
+  color: var(--ink);
+}
+.demo-ledger .balance-card .balance-heading,
+.demo-ledger .balance-card .balance-label,
+.demo-ledger .balance-card p,
+.demo-ledger .balance-card .big-balance > span {
+  color: #6c7965;
+}
+.demo-ledger .network-tag {
+  background: #e5eadf;
+  color: #66765b;
+}
+@media (max-width: 900px) {
+  .stats-grid {
+    gap: 12px;
+  }
+  .stat-card {
+    padding: 16px;
+  }
+}
+@media (max-width: 699px) {
+  .main-shell #main-content {
+    padding-top: 22px;
+    padding-bottom: 28px;
+  }
+  .page-heading {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .page-heading h1,
+  .page-heading:has(.heading-actions > .button) h1 {
+    font-size: 24px;
+    padding: 0;
+  }
+  .heading-actions {
+    flex-shrink: 0;
+  }
+  .heading-actions > .button {
+    min-height: 40px;
+    font-size: 11px;
+    padding: 9px 11px;
+  }
+  .stat-card {
+    padding: 15px;
+  }
+  .stat-top {
+    font-size: 11px;
+  }
+  .stat-value {
+    font-size: 28px;
+    margin-top: 10px;
+  }
+  .courier-readiness {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 12px;
+  }
+  .courier-readiness > div:nth-child(2) {
+    flex: 1;
+  }
+  .readiness-actions {
+    display: flex;
+    margin-left: 0;
+  }
+  .readiness-actions .button {
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+  .demo-ledger {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .demo-ledger > summary {
+    font-size: 12px;
+    gap: 8px;
+  }
+  .demo-ledger > summary span {
+    font-size: 10px;
+  }
+}
+.offer-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+@media (min-width: 1000px) {
+  .offer-card:only-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "meta top top" "title fee actions" "route fee actions";
+    gap: 12px 24px;
+    align-items: center;
+  }
+  .offer-card:only-child .offer-top {
+    grid-area: top;
+    justify-content: flex-end;
+    margin: 0;
+  }
+  .offer-card:only-child .category-icon {
+    display: none;
+  }
+  .offer-card:only-child > .mini-label {
+    grid-area: meta;
+  }
+  .offer-card:only-child > h3 {
+    grid-area: title;
+    margin: 0;
+  }
+  .offer-card:only-child .offer-route {
+    grid-area: route;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin: 0;
+  }
+  .offer-card:only-child .offer-bottom {
+    grid-area: fee;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .offer-card:only-child .offer-actions {
+    grid-area: actions;
+    margin: 0;
+  }
+}

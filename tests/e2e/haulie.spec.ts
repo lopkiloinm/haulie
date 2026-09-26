@@ -3,9 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // Playwright creates a fresh browser context and empty storage for every test.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "A good day to deliver." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 });
 
 async function selectRole(
@@ -18,18 +16,16 @@ async function selectRole(
 async function completeFreshCheck(dialog: Locator, action: string) {
   await dialog.getByRole("button", { name: action, exact: true }).click();
   await expect(
-    dialog.getByRole("heading", { name: "Same human. New handoff." }),
+    dialog.getByRole("heading", { name: "Verify this delivery" }),
   ).toBeVisible();
   await expect(
-    dialog.getByText(
-      "This simulator does not request a World proof.",
-    ),
+    dialog.getByText("This simulator does not request a World proof."),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Simulate fresh verification", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "Same human. New handoff." }),
+    dialog.getByRole("heading", { name: "Verify this delivery" }),
   ).toBeHidden();
 }
 
@@ -85,7 +81,7 @@ test("new delivery follows every independent verification, handoff, and payment 
     .getByRole("button", { name: "Review delivery", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "One little check before it goes." }),
+    dialog.getByRole("heading", { name: "Review delivery" }),
   ).toBeVisible();
   await expect(dialog.getByText("450 Hayes St", { exact: true })).toBeVisible();
   await expect(
@@ -136,12 +132,10 @@ test("new delivery follows every independent verification, handoff, and payment 
     .getByRole("button", { name: "Process demo payout", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "A good delivery, all around." }),
+    dialog.getByRole("heading", { name: "Delivery complete" }),
   ).toBeVisible();
   await expect(
-    dialog.getByText(
-      "There is no transaction digest: this is a simulated payment.",
-    ),
+    dialog.getByText("Simulated funds · no on-chain transfer."),
   ).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "Process demo payout", exact: true }),
@@ -174,7 +168,7 @@ test("dispute freezes a confirmed payment and operator resolution permits a safe
   await confirmRecipient(dialog);
   await dialog
     .getByRole("button", {
-      name: "Something not right? Report an issue",
+      name: "Report an issue",
       exact: true,
     })
     .click();
@@ -212,13 +206,13 @@ test("dispute freezes a confirmed payment and operator resolution permits a safe
     .click();
   await expect(dialog.getByText("Payout retry", { exact: true })).toBeVisible();
   await expect(
-    dialog.getByText("The recipient confirmed receipt", { exact: true }),
+    dialog.getByText("Receipt confirmed", { exact: true }),
   ).toBeVisible();
   await dialog
     .getByRole("button", { name: "Retry demo payout", exact: true })
     .click();
   await expect(
-    dialog.getByRole("heading", { name: "A good delivery, all around." }),
+    dialog.getByRole("heading", { name: "Delivery complete" }),
   ).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "Retry demo payout", exact: true }),
@@ -291,7 +285,7 @@ test.describe("mobile", () => {
       .getByRole("button", { name: /^Deliveries/ })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Every delivery. All right here." }),
+      page.getByRole("heading", { name: "Deliveries", exact: true }),
     ).toBeVisible();
     await noPageOverflow(page);
     await page

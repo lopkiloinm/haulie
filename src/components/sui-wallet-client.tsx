@@ -20,7 +20,14 @@ import { formatCoinAmount, parseCoinAmount } from "@/lib/sui/amount";
 import "./sui-wallet.css";
 
 type Balance = { address: string; sui: string; usdc: string };
-function WalletContent({ compact = false }: { compact?: boolean }) {
+function WalletContent({
+  compact = false,
+  standalone = false,
+}: {
+  compact?: boolean;
+  standalone?: boolean;
+}) {
+  const Heading = standalone ? "h1" : "h2";
   const account = useCurrentAccount();
   const client = useCurrentClient();
   const kit = useDAppKit();
@@ -170,11 +177,9 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
     <section className="sui-wallet card" aria-label="Real Sui wallet">
       <div className="sui-wallet-heading">
         <div>
-          <span className="mini-label">YOUR WALLET · ON CHAIN</span>
-          <h2>
+          <Heading>
             <Wallet size={22} /> Sui wallet
-          </h2>
-          <p>Connect your wallet. Your keys stay with you.</p>
+          </Heading>
         </div>
         <span className="sui-network">Sui testnet</span>
       </div>
@@ -198,8 +203,7 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
       </div>
       {!account ? (
         <p className="sui-wallet-help">
-          Use a Sui-compatible wallet. On mobile, open Haulie in your wallet’s
-          browser. Connecting does not transfer funds.
+          On mobile, open Haulie in your wallet’s browser.
         </p>
       ) : (
         <>
@@ -232,19 +236,17 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
           </div>
           <div className="sui-balances">
             <div>
-              <span>SUI · gas & transfers</span>
+              <span>SUI</span>
               <strong>
-                {currentBalance ? formatCoinAmount(currentBalance.sui, 9) : "—"}{" "}
-                <small>SUI</small>
+                {currentBalance ? formatCoinAmount(currentBalance.sui, 9) : "—"}
               </strong>
             </div>
             <div>
-              <span>Native testnet USDC</span>
+              <span>USDC</span>
               <strong>
                 {currentBalance
                   ? formatCoinAmount(currentBalance.usdc, 6)
-                  : "—"}{" "}
-                <small>USDC</small>
+                  : "—"}
               </strong>
             </div>
           </div>
@@ -265,10 +267,8 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
               }
             }}
           >
-            <h3>Send a testnet payment</h3>
-            <p>
-              This is a direct on-chain transfer, separate from delivery escrow.
-            </p>
+            <h3>Send payment</h3>
+            <p>Direct transfer, separate from delivery escrow.</p>
             <fieldset disabled={busy || review}>
               <label>
                 Recipient address
@@ -312,8 +312,7 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
                 </strong>
                 <span>To {recipient}</span>
                 <small>
-                  Network: Sui testnet. Gas is paid in SUI. Review the exact
-                  transaction in your wallet.
+                  Sui testnet · Gas paid in SUI. Confirm details in your wallet.
                 </small>
                 <button
                   type="button"
@@ -321,7 +320,7 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
                   disabled={busy}
                   onClick={send}
                 >
-                  {busy ? "Awaiting wallet / network…" : "Approve in wallet"}
+                  {busy ? "Awaiting confirmation…" : "Approve in wallet"}
                 </button>
                 <button
                   type="button"
@@ -372,7 +371,10 @@ function WalletContent({ compact = false }: { compact?: boolean }) {
     </section>
   );
 }
-export default function SuiWalletClient(props: { compact?: boolean }) {
+export default function SuiWalletClient(props: {
+  compact?: boolean;
+  standalone?: boolean;
+}) {
   return (
     <DAppKitProvider dAppKit={dAppKit}>
       <WalletContent {...props} />

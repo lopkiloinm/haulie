@@ -61,7 +61,7 @@ test("real wallet UI discovers Wallet Standard accounts, reads balances, and han
       body: Buffer.concat([frame, message, trailerFrame, trailer]),
     });
   });
-  await page.goto("/world-sandbox");
+  await page.goto("/wallet");
   await page
     .getByRole("button", { name: "Connect Sui wallet", exact: true })
     .click();

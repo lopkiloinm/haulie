@@ -4,14 +4,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  Check,
   CheckCircle2,
   CircleAlert,
   Leaf,
   LoaderCircle,
   LockKeyhole,
   PackageCheck,
-  ShieldCheck,
 } from "lucide-react";
 
 type Screen =
@@ -84,9 +82,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
   async function submit(action: "confirm" | "dispute") {
     if (!token.current || busy || (action === "confirm" && !received)) return;
     if (action === "dispute" && reason.trim().length < 5) {
-      setError(
-        "Please describe the issue in a few words so the merchant can help.",
-      );
+      setError("Describe the issue in at least 5 characters.");
       return;
     }
     setBusy(action);
@@ -116,16 +112,16 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
           setScreen("expired");
         } else if (result.error === "NOT_CONFIGURED") {
           setError(
-            "The delivery service is not connected yet. Please contact the merchant to confirm your delivery.",
+            "Confirmation is unavailable. Contact the merchant to confirm delivery.",
           );
         } else if (response.status === 503) {
           setError(
-            "We couldn’t verify the result. Please ask the merchant to check your delivery status before trying again.",
+            "We couldn’t confirm the result. Ask the merchant to check before trying again.",
           );
         } else {
           setError(
             result.message ||
-              "Your request could not be confirmed. Please contact the merchant.",
+              "Your request couldn’t be confirmed. Contact the merchant.",
           );
         }
         return;
@@ -137,26 +133,26 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
         token.current = "";
         setResultMessage(
           result.chainSyncPending
-            ? "Your issue is recorded and automatic payout is paused. The on-chain freeze is still awaiting confirmation. Please contact the merchant for next steps."
-            : "Your issue is recorded and the courier’s payout is paused. Please contact the merchant so they can review what happened.",
+            ? "Automatic payout is paused. The on-chain freeze is pending. Contact the merchant for next steps."
+            : "The courier’s payout is paused. Contact the merchant for next steps.",
         );
         setScreen("disputed");
       } else if (result.state === "PAID" || result.state === "REFUNDED") {
         token.current = "";
         setResultMessage(
           result.state === "PAID"
-            ? "The courier’s payment had already completed. Please contact the merchant directly about your delivery issue."
-            : "This delivery’s escrow has already been refunded. Please contact the merchant about your delivery.",
+            ? "The courier was already paid. Contact the merchant about your issue."
+            : "This delivery was already refunded. Contact the merchant about your issue.",
         );
         setScreen("settled");
       } else {
         setError(
-          "The service returned an unexpected result. Please ask the merchant to check your delivery status.",
+          "We couldn’t confirm the status. Ask the merchant to check your delivery.",
         );
       }
     } catch {
       setError(
-        "We couldn’t verify the result. Please ask the merchant to check your delivery status before trying again.",
+        "We couldn’t confirm the result. Ask the merchant to check before trying again.",
       );
     } finally {
       setBusy(null);
@@ -180,7 +176,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
           haulie<span>.</span>
         </Link>
         <span>
-          <LockKeyhole size={13} /> Private delivery link
+          <LockKeyhole size={13} /> Private link
         </span>
       </header>
 
@@ -190,44 +186,34 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
           aria-labelledby="recipient-title"
           aria-busy={screen === "loading" || busy !== null}
         >
-          <div
-            className={`recipient-illustration ${finished ? "recipient-illustration-complete" : ""}`}
-            aria-hidden="true"
-          >
-            <span className="recipient-orbit recipient-orbit-one" />
-            <span className="recipient-orbit recipient-orbit-two" />
-            <span className="recipient-parcel">
-              {finished ? (
-                <ShieldCheck size={49} strokeWidth={1.4} />
-              ) : (
-                <PackageCheck size={52} strokeWidth={1.35} />
-              )}
-            </span>
-            <span className="recipient-illustration-check">
-              <Check size={16} strokeWidth={2.8} />
-            </span>
-            <span className="recipient-spark recipient-spark-one">✦</span>
-            <span className="recipient-spark recipient-spark-two">✦</span>
-          </div>
-
           <div className="recipient-card-body">
-            <p className="recipient-eyebrow">A little care. Every handoff.</p>
+            <div className="recipient-status-icon" aria-hidden="true">
+              {screen === "confirmed" ? (
+                <CheckCircle2 size={28} strokeWidth={1.6} />
+              ) : invalid || screen === "disputed" || screen === "settled" ? (
+                <CircleAlert size={28} strokeWidth={1.6} />
+              ) : (
+                <PackageCheck size={28} strokeWidth={1.6} />
+              )}
+            </div>
             <h1 id="recipient-title">
               {screen === "confirmed"
-                ? "Delivered. With care."
+                ? "Delivery confirmed"
                 : screen === "disputed"
-                  ? "We’ve recorded your issue."
+                  ? "Issue reported"
                   : screen === "settled"
-                    ? "Delivery already settled."
+                    ? "Delivery already settled"
                     : invalid
-                      ? "Let’s find your delivery."
-                      : "Your parcel, in good hands."}
+                      ? "Delivery link unavailable"
+                      : showIssue
+                        ? "Report an issue"
+                        : "Confirm your delivery"}
             </h1>
 
             {screen === "loading" && (
               <p className="recipient-loading" role="status">
                 <LoaderCircle size={17} className="recipient-spinner" /> Opening
-                your private delivery link…
+                delivery…
               </p>
             )}
 
@@ -235,34 +221,14 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
               <div className="recipient-state" role="status">
                 <p>
                   {screen === "expired"
-                    ? "This link has expired or has already been used. Ask the merchant to check your delivery or send you a fresh link."
-                    : "Open the complete delivery link sent by your merchant. For your privacy, the link’s private token is removed after opening; reloading this page requires reopening the original link."}
+                    ? "This link has expired or was already used. Ask the merchant to check your delivery or send a new link."
+                    : "Reopen the original delivery link from your merchant. If it no longer works, ask for a new link."}
                 </p>
-                <div className="recipient-note">
-                  <CircleAlert size={18} />
-                  <span>
-                    {screen === "expired"
-                      ? "Ask the merchant to check whether your receipt is already recorded."
-                      : "A complete private delivery link is required to continue."}
-                  </span>
-                </div>
               </div>
             )}
 
             {screen === "ready" && (
               <>
-                <p className="recipient-intro">
-                  One last check to finish the journey. Confirm only when your
-                  parcel is safely with you.
-                </p>
-                <div className="recipient-step">
-                  <span>
-                    <Check size={12} />
-                  </span>{" "}
-                  Courier handoff <i />
-                  <strong> Your confirmation</strong>
-                </div>
-
                 {!showIssue ? (
                   <div className="recipient-receipt-form">
                     <label className="recipient-checkbox">
@@ -273,7 +239,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                         onChange={(event) => setReceived(event.target.checked)}
                       />
                       <span>
-                        I have received my parcel and everything looks right.
+                        I received my parcel in good condition.
                       </span>
                     </label>
                     <button
@@ -288,11 +254,11 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                             size={17}
                             className="recipient-spinner"
                           />{" "}
-                          Confirming receipt…
+                          Confirming…
                         </>
                       ) : (
                         <>
-                          Confirm I’ve received it <ArrowRight size={17} />
+                          Confirm delivery <ArrowRight size={17} />
                         </>
                       )}
                     </button>
@@ -305,17 +271,14 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                         setError("");
                       }}
                     >
-                      <CircleAlert size={15} /> Something isn’t right
+                      <CircleAlert size={15} /> Report an issue
                     </button>
                   </div>
                 ) : (
                   <form className="recipient-issue-form" onSubmit={reportIssue}>
                     <label htmlFor="delivery-issue">
-                      Tell the merchant what happened
+                      What happened?
                     </label>
-                    <p>
-                      For damage, a missing parcel, or another delivery problem.
-                    </p>
                     <textarea
                       id="delivery-issue"
                       value={reason}
@@ -325,7 +288,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                       rows={4}
                       required
                       disabled={busy !== null}
-                      placeholder="Describe the issue. Please leave out payment details or other sensitive information."
+                      placeholder="Describe the damage, missing parcel, or other issue."
                     />
                     <button
                       className="recipient-primary"
@@ -338,11 +301,11 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                             size={17}
                             className="recipient-spinner"
                           />{" "}
-                          Recording your issue…
+                          Sending…
                         </>
                       ) : (
                         <>
-                          Report a delivery issue <ArrowRight size={17} />
+                          Send report <ArrowRight size={17} />
                         </>
                       )}
                     </button>
@@ -355,7 +318,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                         setError("");
                       }}
                     >
-                      Back to receipt confirmation
+                      Back to confirmation
                     </button>
                   </form>
                 )}
@@ -366,11 +329,11 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                     <p>{error}</p>
                   </div>
                 )}
-                <p className="recipient-payment-note">
-                  <LockKeyhole size={13} /> Your confirmation allows the
-                  courier’s reserved payment to be processed. You won’t be
-                  charged.
-                </p>
+                {!showIssue && (
+                  <p className="recipient-payment-note">
+                    Confirmation allows the courier to be paid. You won’t be charged.
+                  </p>
+                )}
               </>
             )}
 
@@ -379,37 +342,19 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                 {screen === "confirmed" ? (
                   <>
                     <p>
-                      Your receipt is confirmed. The merchant and courier can
-                      now see that your parcel arrived.
+                      The merchant and courier can see your confirmation.
                     </p>
-                    <div className="recipient-success">
-                      <CheckCircle2 size={19} />
-                      <span>Thank you for completing the handoff.</span>
-                    </div>
                     <p className="recipient-small">
-                      The courier’s payment will be processed separately. You
-                      can close this page.
+                      Payment is processed separately. You can close this page.
                     </p>
                   </>
                 ) : (
-                  <>
-                    <p>{resultMessage}</p>
-                    <div className="recipient-note">
-                      <CircleAlert size={18} />
-                      <span>Keep in touch with the merchant for updates.</span>
-                    </div>
-                  </>
+                  <p>{resultMessage}</p>
                 )}
               </div>
             )}
           </div>
         </section>
-        <p className="recipient-footer">
-          <ShieldCheck size={16} /> A verified human at every handoff.
-        </p>
-        <p className="recipient-privacy">
-          A private, single-purpose link. No account needed.
-        </p>
       </main>
     </div>
   );

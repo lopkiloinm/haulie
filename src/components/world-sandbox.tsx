@@ -153,7 +153,7 @@ export function WorldSandbox({
               </div>
             </li>
           </ol>
-          {message && !delivery?.pickedUp && (
+          {message && message !== messages["picked-up"] && (
             <div className="sandbox-message" role="status">
               <CircleAlert size={18} />
               <p>{message}</p>

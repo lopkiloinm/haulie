@@ -98,7 +98,7 @@ try {
     content: `globalThis.__name = (value) => value; (${registerWallet.toString()})(${JSON.stringify({ address, publicKey: Array.from(signer.getPublicKey().toRawBytes()) })});`,
   });
   await page.goto(
-    `${process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000"}/world-sandbox`,
+    `${process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000"}/wallet`,
   );
   await page
     .getByRole("button", { name: "Connect Sui wallet", exact: true })
