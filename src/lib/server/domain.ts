@@ -20,6 +20,10 @@ export interface Courier {
   unique_human_verified_at: Date | null;
   wallet_address: string | null;
   wallet_bound_at: Date | null;
+  service_area?: string | null;
+  vehicle_type?: string | null;
+  contact_method?: string | null;
+  rules_accepted_at?: Date | null;
 }
 export interface VerificationRequest {
   id: string;
@@ -40,6 +44,7 @@ export const digestToken = (value: string) => createHash("sha256").update(value)
 export function assertCourier(courier: Courier, enrolled = true) {
   requireCondition(courier.account_status === "active", "COURIER_INACTIVE", "This courier account is suspended or revoked.", 403);
   if (enrolled) requireCondition(courier.world_session_id && courier.unique_human_verified_at && courier.wallet_address && courier.wallet_bound_at, "ONBOARDING_REQUIRED", "Complete unique-human verification, session enrollment, and wallet binding first.", 403);
+  if (enrolled) requireCondition(courier.service_area && courier.vehicle_type && courier.contact_method && courier.rules_accepted_at, "PROFILE_REQUIRED", "Complete the courier operational profile and accept delivery rules first.", 403);
 }
 
 export function assertProofRequest(request: VerificationRequest, courierId: string, jobId: string | null, stage: Stage, now = new Date()) {

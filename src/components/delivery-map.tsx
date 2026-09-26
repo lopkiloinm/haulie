@@ -146,7 +146,7 @@ export function DeliveryMap({
               <rect width="118" height="27" rx="8" fill="#fff" />
               <path d="m53 26 6 6 6-6" fill="#fff" />
               <circle cx="14" cy="13.5" r="3" fill="#3d7751" />
-              <text x="25" y="17" fill="#354b38" fontFamily="Arial, sans-serif" fontSize="10" fontWeight="600">Alex is on the way</text>
+              <text x="25" y="17" fill="#354b38" fontFamily="Arial, sans-serif" fontSize="10" fontWeight="600">Courier on the way</text>
             </g>
           )}
         </g>

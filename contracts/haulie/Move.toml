@@ -3,5 +3,8 @@ name = "haulie"
 edition = "2024.beta"
 license = "MIT"
 
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "b448b1d971bd6c1aac8ef4eee4305943806d5d5b" }
+
 [addresses]
 haulie = "0x0"
