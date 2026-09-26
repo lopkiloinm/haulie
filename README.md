@@ -23,7 +23,7 @@ Open http://localhost:3000. Demo settings include a reset action. No environment
 
 ## Courier workspace
 
-Open **Courier workspace** in the top bar, or visit [/courier](https://haulie-chi.vercel.app/courier). Browse and search funded offers, inspect the route, fee and window, then choose **Accept delivery**. The fresh demo check assigns the job to Jamie Chen, removes it from the feed, and adds it to **My deliveries**. Courier lists, earnings, notifications and exports show only this courier’s jobs. Cancellation before handoff returns the funded offer and requires new verification on reacceptance.
+Choose **Courier** from the sidebar workspace menu (open the navigation drawer on mobile), or visit [/courier](https://haulie-chi.vercel.app/courier). Browse and search funded offers, inspect the route, fee and window, then choose **Accept delivery**. The fresh demo check assigns the job to Jamie Chen, removes it from the feed, and adds it to **My deliveries**. Courier lists, earnings, notifications and exports show only this courier’s jobs. Cancellation before handoff returns the funded offer and requires new verification on reacceptance.
 
 ## Rehearse a delivery
 

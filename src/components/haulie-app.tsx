@@ -464,18 +464,6 @@ export function HaulieApp({
             <span>{pageLabel(page)}</span>
           </div>
           <div className="topbar-actions">
-            <Link
-              className="workspace-shortcut"
-              aria-label={
-                role === "Courier" ? "Merchant workspace" : "Courier workspace"
-              }
-              href={role === "Courier" ? "/" : "/courier"}
-            >
-              {role === "Courier" ? <Store size={15} /> : <Bike size={15} />}
-              {role === "Courier" ? "Merchant" : "Courier"}
-              <span className="workspace-shortcut-suffix">workspace</span>
-              <ArrowUpRight size={13} />
-            </Link>
             <label className="global-search">
               <Search size={16} />
               <input
@@ -904,7 +892,10 @@ export function HaulieApp({
                 <>
                   <div className="section-title">
                     <h2>Available deliveries</h2>
-                    <span>{availableJobs.length} funded {availableJobs.length === 1 ? "offer" : "offers"}</span>
+                    <span>
+                      {availableJobs.length} funded{" "}
+                      {availableJobs.length === 1 ? "offer" : "offers"}
+                    </span>
                   </div>
                   <div className="marketplace-tools">
                     <label className="marketplace-search">

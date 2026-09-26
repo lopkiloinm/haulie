@@ -27,6 +27,19 @@ async function completeProof(dialog: Locator) {
   ).toBeHidden();
 }
 
+async function openCourierWorkspace(page: Page) {
+  const openNavigation = page.getByRole("button", {
+    name: "Open navigation",
+    exact: true,
+  });
+  if (await openNavigation.isVisible()) await openNavigation.click();
+  const sidebar = page.getByRole("complementary", {
+    name: "Main navigation",
+  });
+  await sidebar.getByRole("button", { name: /Merchant account/ }).click();
+  await sidebar.getByRole("button", { name: "Courier", exact: true }).click();
+}
+
 async function navigateCourier(page: Page, name: string) {
   const navigation = page.getByRole("navigation");
   const openNavigation = page.getByRole("button", {
@@ -51,9 +64,7 @@ test("courier discovers a funded offer and accepts it only after a fresh check",
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("link", { name: "Courier workspace", exact: true })
-    .click();
+  await openCourierWorkspace(page);
   await expect(page).toHaveURL(/\/courier$/);
   await expect(
     page.getByRole("heading", { name: "Your next delivery awaits." }),
@@ -281,9 +292,7 @@ test.describe("courier on mobile", () => {
     page,
   }) => {
     await page.goto("/");
-    await page
-      .getByRole("link", { name: "Courier workspace", exact: true })
-      .click();
+    await openCourierWorkspace(page);
     await expect(page).toHaveURL(/\/courier$/);
     await expectNoOverflow(page);
     const offer = page.getByRole("article", { name: offerTitle, exact: true });
