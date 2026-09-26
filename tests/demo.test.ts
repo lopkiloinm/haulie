@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { INITIAL_STATE, transitionJob, type DemoAction, type DemoJob } from "../src/lib/demo";
+import { INITIAL_SNAPSHOT, INITIAL_STATE, parseSnapshot, transitionJob, type DemoAction, type DemoJob } from "../src/lib/demo";
 
 function fundedJob(): DemoJob {
   return structuredClone(INITIAL_STATE.jobs.find((job) => job.status === "FUNDED")!);
@@ -184,5 +184,66 @@ describe("demo disputes, cancellations, and settlement recovery", () => {
     assert.throws(() => transitionJob(paid, "PAY"), /Payment is locked/);
     assert.throws(() => transitionJob(paid, "FAIL_PAYOUT"));
     assert.deepEqual(paid, snapshot, "a repeated payout must not change the settled state");
+  });
+});
+
+describe("stored demo state recovery", () => {
+  it("loads valid demo state, including an empty workspace and normal delivery transitions", () => {
+    assert.deepEqual(parseSnapshot(INITIAL_SNAPSHOT), INITIAL_STATE);
+    const empty = { ...INITIAL_STATE, jobs: [] };
+    assert.deepEqual(parseSnapshot(JSON.stringify(empty)), empty);
+    const current = { ...INITIAL_STATE, businessName: "Changed store", jobs: [advance(...throughReceipt)] };
+    assert.deepEqual(parseSnapshot(JSON.stringify(current)), current);
+    const disputed = { ...current, jobs: [transitionJob(current.jobs[0], "DISPUTE", "Damaged parcel")] };
+    assert.deepEqual(parseSnapshot(JSON.stringify(disputed)), disputed);
+  });
+
+  it("recovers from malformed shapes and invalid required workspace fields", () => {
+    const invalid = [null, [], {}, { ...INITIAL_STATE, jobs: [null] },
+      { ...INITIAL_STATE, businessName: "  " }, { ...INITIAL_STATE, contact: null },
+      { ...INITIAL_STATE, notifications: "true" }, { ...INITIAL_STATE, courierEnrolled: undefined },
+      { ...INITIAL_STATE, walletConnected: 1 }];
+    for (const value of invalid) assert.deepEqual(parseSnapshot(JSON.stringify(value)), INITIAL_STATE);
+    assert.deepEqual(parseSnapshot("not json"), INITIAL_STATE);
+  });
+
+  it("rejects inherited statuses, incomplete couriers, malformed event data, and duplicate delivery IDs", () => {
+    const original = fundedJob();
+    const patches = [
+      { status: "toString" }, { status: "__proto__" }, { status: "UNKNOWN" },
+      { courier: "Jamie Chen", initials: undefined }, { initials: 42 },
+      { pickupAddress: undefined }, { recipient: null }, { title: " " },
+      { acceptVerified: "true" }, { payoutWallet: {} },
+      { createdAt: "invalid date" }, { events: [null] },
+      { events: [{ title: "Something happened", actor: null, at: original.createdAt }] },
+      { events: [{ title: "Something happened", actor: "Merchant", at: "not a date" }] },
+      { status: "DISPUTED", disputeReason: "Damaged parcel", beforeDispute: "PAID" },
+    ];
+    for (const patch of patches) {
+      assert.deepEqual(parseSnapshot(JSON.stringify({ ...INITIAL_STATE, jobs: [{ ...original, ...patch }] })), INITIAL_STATE);
+    }
+    assert.deepEqual(parseSnapshot(JSON.stringify({ ...INITIAL_STATE, jobs: [original, original] })), INITIAL_STATE);
+  });
+
+  it("rejects nonfinite or out-of-range fees while preserving both supported bounds", () => {
+    for (const fee of [NaN, Infinity, -Infinity, -1, 0, 0.99, 50.01, "6"]) {
+      assert.deepEqual(parseSnapshot(JSON.stringify({ ...INITIAL_STATE, jobs: [{ ...fundedJob(), fee }] })), INITIAL_STATE);
+    }
+    for (const fee of [1, 6.25, 50]) {
+      const state = { ...INITIAL_STATE, businessName: "Fee bounds", jobs: [{ ...fundedJob(), fee }] };
+      assert.deepEqual(parseSnapshot(JSON.stringify(state)), state);
+    }
+  });
+
+  it("returns independent fallback objects so callers cannot modify the shared initial fixture", () => {
+    const fallback = parseSnapshot("invalid");
+    const second = parseSnapshot("invalid");
+    assert.notEqual(fallback, INITIAL_STATE);
+    assert.notEqual(fallback.jobs[0], INITIAL_STATE.jobs[0]);
+    fallback.businessName = "Mutated";
+    fallback.jobs[0].events.push({ title: "Changed", actor: "Merchant", at: new Date().toISOString() });
+    assert.equal(INITIAL_STATE.businessName, "The Everyday Store");
+    assert.deepEqual(second, JSON.parse(INITIAL_SNAPSHOT));
+    assert.deepEqual(INITIAL_STATE, JSON.parse(INITIAL_SNAPSHOT));
   });
 });

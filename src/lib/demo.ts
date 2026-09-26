@@ -84,9 +84,40 @@ export function transitionJob(current: DemoJob, action: DemoAction, reason?: str
   return next;
 }
 export function readSnapshot() { try { return localStorage.getItem(STORAGE_KEY) || INITIAL_SNAPSHOT; } catch { return INITIAL_SNAPSHOT; } }
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const isNonemptyString = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+const isDateString = (value: unknown) =>
+  isNonemptyString(value) && Number.isFinite(Date.parse(value));
+const isStatus = (value: unknown): value is JobStatus =>
+  typeof value === "string" && Object.hasOwn(STATUS, value);
+
+function isDemoJob(value: unknown): value is DemoJob {
+  if (!isRecord(value)) return false;
+  const requiredText = ["id", "title", "category", "pickup", "destination", "pickupAddress", "destinationAddress", "recipient", "window"];
+  if (!requiredText.every(key => isNonemptyString(value[key]))) return false;
+  if (!isStatus(value.status) || !isDateString(value.createdAt)) return false;
+  if (typeof value.fee !== "number" || !Number.isFinite(value.fee) || value.fee < 1 || value.fee > 50) return false;
+  if (!["acceptVerified", "pickupVerified", "recipientConfirmed"].every(key => value[key] === undefined || typeof value[key] === "boolean")) return false;
+  if (!["courier", "initials", "payoutWallet", "disputeReason"].every(key => value[key] === undefined || isNonemptyString(value[key]))) return false;
+  if (value.courier !== undefined && !isNonemptyString(value.initials)) return false;
+  if (value.beforeDispute !== undefined && !isStatus(value.beforeDispute)) return false;
+  if (value.status === "DISPUTED" && (!isNonemptyString(value.disputeReason) || !["ASSIGNED", "PICKED_UP", "DELIVERY_CONFIRMED", "PAYOUT_RETRY"].includes(String(value.beforeDispute)))) return false;
+  return Array.isArray(value.events) && value.events.every(event =>
+    isRecord(event) && isNonemptyString(event.title) && isNonemptyString(event.actor) && isDateString(event.at));
+}
+
 export function parseSnapshot(snapshot: string): DemoState {
-  try { const state = JSON.parse(snapshot); if (Array.isArray(state.jobs) && state.jobs.every((j: DemoJob) => typeof j.id === "string" && j.status in STATUS && Array.isArray(j.events) && Number.isFinite(j.fee) && typeof j.pickup === "string" && typeof j.destination === "string" && typeof j.title === "string") && typeof state.businessName === "string") return state; } catch { /* Invalid local demo data resets to the fixture. */ }
-  return INITIAL_STATE;
+  try {
+    const state: unknown = JSON.parse(snapshot);
+    if (isRecord(state) && Array.isArray(state.jobs) && state.jobs.every(isDemoJob)
+      && new Set(state.jobs.map(job => job.id)).size === state.jobs.length
+      && isNonemptyString(state.businessName) && isNonemptyString(state.contact)
+      && typeof state.notifications === "boolean" && typeof state.courierEnrolled === "boolean"
+      && typeof state.walletConnected === "boolean") return state as DemoState;
+  } catch { /* Invalid local demo data resets to an independent copy of the fixture. */ }
+  return structuredClone(INITIAL_STATE);
 }
 export function subscribeDemo(callback: () => void) { window.addEventListener("haulie:change", callback); window.addEventListener("storage", callback); return () => { window.removeEventListener("haulie:change", callback); window.removeEventListener("storage", callback); }; }
 export function persistDemo(state: DemoState) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); window.dispatchEvent(new Event("haulie:change")); }
