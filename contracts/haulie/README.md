@@ -16,9 +16,20 @@ The package compiled and all 15 Move tests passed with `sui 1.53.2-homebrew`. Te
 NODE_OPTIONS=--conditions=react-server npx tsx --test src/lib/sui/server.test.ts
 ```
 
+## Testnet deployment
+
+| Object | ID |
+| --- | --- |
+| Package | `0xd5912d65474abd188664416a95a539da959aa7ca14cc746b7ddc21ca0becce5e` |
+| `OperatorCap` | `0x356b99581bc5290df524773c8ddf757b0ed21f73aa188154653aca1592435176` |
+| `Config<native testnet USDC>` | `0xcede1ede19f214ad70dfb0503f567dbb6c8dc87d1e9aac4ffa55b7f050bddc65` |
+| `Config<SUI>` (sample parcels only) | `0xa47f20718a002192dbb598efa093b23ccdfa3b85561be829568613bcf260dbd0` |
+
+Published with `scripts/publish-escrow.mts` (digest `AZAwyyMm7npNsnMXZX3diin32UFGnrBezCpvwvkKMstW`) from a dedicated testnet operator key. `scripts/custody-demo.mts` ran three sample parcels through it; [/custody](https://haulie-chi.vercel.app/custody) reads their events live. Sui CLI 1.53's `publish` and `call` use JSON-RPC, which public fullnodes have retired; the scripts use the SDK over gRPC instead. The CLI commands below remain valid against a node that still serves JSON-RPC.
+
 ## Testnet setup
 
-No package has been published and no wallet has been funded automatically. Use a dedicated testnet operator wallet with SUI gas. Run these commands deliberately with your intended active Sui environment and wallet:
+Use a dedicated testnet operator wallet with SUI gas. Run these commands deliberately with your intended active Sui environment and wallet:
 
 ```sh
 sui client switch --env testnet
@@ -63,4 +74,4 @@ The terminal escrow object remains available with a zero balance. The server con
 - [Sui data queries](https://sdk.mystenlabs.com/sui/clients/querying): BCS parsing and transaction/event verification.
 - [Circle native USDC addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses): network-specific allowlist in `src/lib/sui/types.ts`.
 
-Before accepting real funds, review operator key management, upgrade authority, withdrawal/dispute policy, monitoring, and the contract independently. This implementation has local unit coverage; a testnet end-to-end payout still requires deployment credentials, funded wallets, World staging configuration, and a configured database.
+Before accepting real funds, review operator key management, upgrade authority, withdrawal/dispute policy, monitoring, and the contract independently. Sample testnet payouts have executed through the published package; a payout driven by the delivery app still requires the operator credentials on the server, funded merchant wallets, World staging configuration, and a configured database.

@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   Bell,
   Bike,
+  Blocks,
   Check,
   CheckCheck,
   ChevronDown,
@@ -510,6 +511,10 @@ export function HaulieApp({
           )}
         </nav>
         <div className="sidebar-bottom">
+          <Link className="nav-item" href="/custody">
+            <Blocks size={20} />
+            <span>On-chain custody</span>
+          </Link>
           <button className="nav-item" onClick={() => setDialog("guide")}>
             <CircleHelp size={20} />
             <span>Help</span>
