@@ -8,7 +8,13 @@ Haulie is **operator-attested delivery with on-chain escrow**. The Move contract
 sui move test --path contracts/haulie
 ```
 
-The package was compiled and its tests passed with `sui 1.53.2-homebrew`. Tests cover exact funding, funded refund, refund/release replay, early release, disputed release, pre-pickup reassignment, post-pickup cancellation rejection, fixed payout, and an unrelated operator capability. They mint a test-only SUI coin; production integrations accept Circle's network-specific native USDC type only.
+The package compiled and all 15 Move tests passed with `sui 1.53.2-homebrew`. Tests cover exact funding, funded refund, refund/release replay, early release, disputed release, pre-pickup reassignment, post-pickup cancellation rejection, fixed payout, and an unrelated operator capability. They mint a test-only SUI coin; production integrations accept Circle's network-specific native USDC type only.
+
+`src/lib/sui/server.test.ts` has 10 adapter regression tests with all RPC methods mocked. They cover configuration/network/token rejection, exactly-once reconciliation, and disputes after a successful chain transaction whose database commit was lost. With the `server-only` marker dependency installed, run:
+
+```sh
+NODE_OPTIONS=--conditions=react-server npx tsx --test src/lib/sui/server.test.ts
+```
 
 ## Testnet setup
 

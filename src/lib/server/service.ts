@@ -3,6 +3,7 @@ import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
 import {
   assignEscrow, confirmEscrowDelivery, confirmEscrowFunding, confirmEscrowPickup,
   disputeEscrow, refundEscrow, resolveEscrowDispute, settleEscrow, unassignEscrow,
+  reconcileEscrowTerminal, SuiAlreadySettledError, type EscrowTerminalReceipt,
 } from "@/lib/sui/server";
 import type { Actor } from "./auth";
 import { db, rateLimit, type Transaction } from "./db";
@@ -39,6 +40,30 @@ async function event(tx: Transaction, jobId: string, actor: Actor | null, type: 
 async function proofStages(tx: Transaction, job: Job & Record<string, unknown>) {
   const proofs = await tx`SELECT stage FROM delivery_verifications WHERE job_id = ${job.id} AND courier_id = ${job.assigned_courier_id} AND assignment_generation = ${Number(job.assignment_generation)}`;
   return proofs.map(row => String(row.stage));
+}
+
+async function recordTerminal(tx: Transaction, job: Job, actor: Actor | null, receipt: EscrowTerminalReceipt) {
+  requireCondition(receipt.amount === String(job.fee_usdc), "ESCROW_MISMATCH", "The recorded escrow amount differs from this delivery.");
+  if (receipt.state === "PAID") {
+    requireCondition(job.payout_address && receipt.payoutAddress === job.payout_address, "ESCROW_MISMATCH", "The settled wallet differs from the acceptance snapshot.");
+    await tx`INSERT INTO settlements (job_id, payout_amount, wallet_address, digest, status) VALUES (${job.id}, ${job.fee_usdc}, ${job.payout_address}, ${receipt.digest}, 'paid') ON CONFLICT (job_id) DO UPDATE SET status = 'paid', digest = ${receipt.digest}, last_error = NULL, updated_at = now()`;
+  }
+  await tx`UPDATE jobs SET state = ${receipt.state}, updated_at = now() WHERE id = ${job.id}`;
+  await event(tx, job.id, actor, "PREVIOUS_CHAIN_SETTLEMENT_RECONCILED", receipt.digest);
+  return { state: receipt.state, digest: receipt.digest, message: "Escrow had already settled on-chain. The recorded outcome has been reconciled; transferred funds cannot be frozen." };
+}
+
+async function synchronizeDispute(tx: Transaction, job: Job, actor: Actor | null) {
+  let terminal: EscrowTerminalReceipt | null = null;
+  let digest: string | null = null;
+  try {
+    terminal = await reconcileEscrowTerminal({ ...chainJob(job), amount: String(job.fee_usdc), ...(job.payout_address ? { payoutAddress: job.payout_address } : {}) });
+    if (!terminal) digest = (await disputeEscrow(chainJob(job))).digest;
+  } catch (error) {
+    if (error instanceof SuiAlreadySettledError) terminal = error.terminal;
+    // A chain outage must never prevent the local freeze below.
+  }
+  return { digest, terminal: terminal ? await recordTerminal(tx, job, actor, terminal) : null };
 }
 
 export async function listJobs(actor: Actor) {
@@ -186,11 +211,17 @@ export async function recipientAction(id: string, token: string, action: "confir
     assertDeliveryReady(job, await proofStages(tx, job), disputes.length > 0);
     if (action === "dispute") {
       requireCondition(reason && reason.length >= 5, "REASON_REQUIRED", "Describe the delivery problem.", 400);
-      let disputeDigest: string | null = null;
-      try { disputeDigest = (await disputeEscrow(chainJob(job))).digest; } catch { /* The database freeze must survive a chain outage. */ }
+      const sync = await synchronizeDispute(tx, job, null);
+      if (sync.terminal) {
+        await tx`UPDATE handoff_challenges SET consumed_at = now() WHERE id = ${challenge.id}`;
+        return sync.terminal;
+      }
+      const disputeDigest = sync.digest;
       await tx`INSERT INTO disputes (id, job_id, reason) VALUES (${randomUUID()}, ${id}, ${reason})`;
       await tx`UPDATE jobs SET state = 'DISPUTED', updated_at = now() WHERE id = ${id}`;
       await event(tx, id, null, disputeDigest ? "RECIPIENT_DISPUTE_OPENED" : "RECIPIENT_DISPUTE_CHAIN_SYNC_PENDING", disputeDigest);
+      await tx`UPDATE handoff_challenges SET consumed_at = now() WHERE id = ${challenge.id}`;
+      return { state: "DISPUTED", chainSyncPending: !disputeDigest, message: disputeDigest ? "Automatic payout is paused and the on-chain dispute lock is confirmed." : "Automatic payout is paused; the on-chain freeze is awaiting confirmation." };
     } else {
       const courier = await lockCourier(tx, job.assigned_courier_id!);
       assertCourier(courier);
@@ -199,7 +230,7 @@ export async function recipientAction(id: string, token: string, action: "confir
       await event(tx, id, null, "RECIPIENT_RECEIPT_CONFIRMED", chain.digest);
     }
     await tx`UPDATE handoff_challenges SET consumed_at = now() WHERE id = ${challenge.id}`;
-    return { state: action === "confirm" ? "DELIVERY_CONFIRMED" : "DISPUTED" };
+    return { state: "DELIVERY_CONFIRMED" };
   });
 }
 
@@ -208,13 +239,14 @@ export async function openDispute(actor: Actor, id: string, reason: string) {
     const job = await lockJob(tx, id);
     involved(actor, job);
     requireCondition(["ASSIGNED", "PICKED_UP", "DELIVERY_CONFIRMED", "PAYOUT_RETRY"].includes(job.state), "INVALID_STATE", "This delivery cannot enter a dispute at its current stage.");
-    let disputeDigest: string | null = null;
-    try { disputeDigest = (await disputeEscrow(chainJob(job))).digest; } catch { /* Freeze automatic payout even if chain synchronization is unavailable. */ }
+    const sync = await synchronizeDispute(tx, job, actor);
+    if (sync.terminal) return sync.terminal;
+    const disputeDigest = sync.digest;
     await tx`INSERT INTO disputes (id, job_id, reason) VALUES (${randomUUID()}, ${id}, ${reason})`;
     await tx`UPDATE jobs SET state = 'DISPUTED', updated_at = now() WHERE id = ${id}`;
     await tx`UPDATE settlements SET status = 'frozen', updated_at = now() WHERE job_id = ${id} AND status <> 'paid'`;
     await event(tx, id, actor, disputeDigest ? "DISPUTE_OPENED" : "DISPUTE_CHAIN_SYNC_PENDING", disputeDigest);
-    return { state: "DISPUTED" };
+    return { state: "DISPUTED", chainSyncPending: !disputeDigest, message: disputeDigest ? "Automatic payout is paused and the on-chain dispute lock is confirmed." : "Automatic payout is paused; the on-chain freeze is awaiting confirmation." };
   });
 }
 
@@ -288,9 +320,15 @@ export async function resolveDispute(actor: Actor, id: string, payCourier: boole
   return db().begin(async tx => {
     const job = await lockJob(tx, id);
     requireCondition(actor.role === "operator" && job.state === "DISPUTED", "INVALID_STATE", "Only an operator can resolve an open delivery dispute.", 403);
-    // Reconcile any dispute freeze that could not reach Sui during an outage.
-    await disputeEscrow(chainJob(job));
-    const result = await resolveEscrowDispute({ ...chainJob(job), payCourier });
+    // The adapter first reconciles terminal outcomes, then synchronizes any missing freeze.
+    let result: { digest: string };
+    try { result = await resolveEscrowDispute({ ...chainJob(job), payCourier }); }
+    catch (error) {
+      if (!(error instanceof SuiAlreadySettledError)) throw error;
+      const actual = await recordTerminal(tx, job, actor, error.terminal);
+      await tx`UPDATE disputes SET status = 'resolved', resolution = ${`Chain already ${error.terminal.state}. Operator review: ${resolution}`}, resolver = ${actor.id}, resolved_at = now() WHERE job_id = ${id} AND status = 'open'`;
+      return actual;
+    }
     await tx`UPDATE disputes SET status = 'resolved', resolution = ${resolution}, resolver = ${actor.id}, resolved_at = now() WHERE job_id = ${id} AND status = 'open'`;
     if (payCourier) {
       requireCondition(job.payout_address, "MISSING_WALLET", "No courier payout address is recorded.");

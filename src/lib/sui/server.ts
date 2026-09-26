@@ -18,6 +18,21 @@ export class SuiIntegrationError extends Error {
   }
 }
 
+export type EscrowTerminalReceipt = {
+  state: "PAID" | "REFUNDED";
+  digest: string;
+  amount: string;
+  payoutAddress: string;
+};
+
+/** A dispute cannot freeze funds that have already left escrow. */
+export class SuiAlreadySettledError extends SuiIntegrationError {
+  constructor(public readonly terminal: EscrowTerminalReceipt) {
+    super("Escrow has already settled; reconcile its confirmed outcome.", "ALREADY_SETTLED");
+    this.name = "SuiAlreadySettledError";
+  }
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new SuiIntegrationError(`Missing ${name}; live escrow is unavailable.`, "CONFIGURATION_REQUIRED");
@@ -151,6 +166,28 @@ async function verifiedReceipt(ctx: Context, input: EscrowReference, digest: str
   return result.Transaction.digest;
 }
 
+async function terminalReceipt(ctx: Context, input: EscrowReference, escrow: Awaited<ReturnType<typeof readEscrow>>): Promise<EscrowTerminalReceipt | null> {
+  if (escrow.state !== ESCROW_STATE.PAID && escrow.state !== ESCROW_STATE.REFUNDED) return null;
+  return {
+    state: escrow.state === ESCROW_STATE.PAID ? "PAID" : "REFUNDED",
+    digest: await verifiedReceipt(ctx, input, escrow.previousTransaction, escrow.state, escrow.amount,
+      escrow.state === ESCROW_STATE.PAID ? escrow.payout : escrow.merchant),
+    amount: escrow.amount,
+    payoutAddress: escrow.payout,
+  };
+}
+
+/** Read-only recovery for a chain success whose database commit was lost. */
+export async function reconcileEscrowTerminal(input: EscrowReference & { amount: string; payoutAddress?: string }): Promise<EscrowTerminalReceipt | null> {
+  const ctx = await context();
+  const escrow = await readEscrow(ctx, input);
+  if (escrow.amount !== amount(input.amount)) throw new SuiIntegrationError("Funded escrow amount does not match the job.");
+  if (input.payoutAddress && escrow.payout !== address(input.payoutAddress)) {
+    throw new SuiIntegrationError("Escrow payout differs from the acceptance snapshot.");
+  }
+  return terminalReceipt(ctx, input, escrow);
+}
+
 /** Merchant signs this transaction; the server never spends merchant assets. */
 export async function prepareEscrowFunding(input: { jobId: string; amount: string; merchantWallet: string }) {
   const ctx = await context();
@@ -207,6 +244,10 @@ async function mutate(input: EscrowReference, mutation: Mutation): Promise<Escro
       reconciled: true,
     };
   }
+  if (mutation.functionName === "dispute") {
+    const terminal = await terminalReceipt(ctx, input, escrow);
+    if (terminal) throw new SuiAlreadySettledError(terminal);
+  }
   if (!mutation.expectedStates.includes(escrow.state)) throw new SuiIntegrationError("Escrow state does not permit this transition.");
   const tx = new Transaction();
   tx.setSender(ctx.config.signer.toSuiAddress());
@@ -244,6 +285,18 @@ export function refundEscrow(input: EscrowReference) {
 export function settleEscrow(input: EscrowSettlement) {
   return mutate(input, { functionName: "release", expectedStates: [3], targetState: 5, payoutAddress: input.payoutAddress, amount: input.amount });
 }
-export function resolveEscrowDispute(input: EscrowReference & { payCourier: boolean }) {
+export async function resolveEscrowDispute(input: EscrowReference & { payCourier: boolean }) {
+  const ctx = await context();
+  const escrow = await readEscrow(ctx, input);
+  const terminal = await terminalReceipt(ctx, input, escrow);
+  if (terminal) {
+    if ((terminal.state === "PAID") !== input.payCourier) {
+      throw new SuiAlreadySettledError(terminal);
+    }
+    return { digest: terminal.digest, reconciled: true };
+  }
+  // A database dispute survives RPC outages. Synchronize its chain lock before
+  // resolution, while allowing a prior terminal success to reconcile above.
+  if (escrow.state !== ESCROW_STATE.DISPUTED) await disputeEscrow(input);
   return mutate(input, { functionName: "resolve_dispute", expectedStates: [4], targetState: input.payCourier ? 5 : 6, payCourier: input.payCourier });
 }

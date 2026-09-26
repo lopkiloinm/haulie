@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, Bike, Check, CircleAlert, CircleCheck, Clock3, Copy, LockKeyhole, MapPin, Package, RotateCcw, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { Bike, Check, CircleAlert, CircleCheck, Clock3, Copy, LockKeyhole, MapPin, Package, RotateCcw, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
 import { DeliveryMap } from "./delivery-map";
 import { STATUS, formatMoney, type DemoAction, type DemoJob, type DemoRole } from "@/lib/demo";
 
@@ -20,8 +20,9 @@ export function Modal({title,subtitle,onClose,children,wide=false}: {title:strin
         const nodes=ref.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]');
         if(!nodes?.length)return;
         const first=nodes[0], last=nodes[nodes.length-1];
-        if(e.shiftKey && (document.activeElement===first || document.activeElement===ref.current)){e.preventDefault();last.focus();}
-        else if(!e.shiftKey && (document.activeElement===last || document.activeElement===ref.current)){e.preventDefault();first.focus();}
+        const outside = !ref.current?.contains(document.activeElement);
+        if(e.shiftKey && (outside || document.activeElement===first || document.activeElement===ref.current)){e.preventDefault();last.focus();}
+        else if(!e.shiftKey && (outside || document.activeElement===last || document.activeElement===ref.current)){e.preventDefault();first.focus();}
       }
     };
     document.addEventListener("keydown",handler);

@@ -8,10 +8,12 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests/*.test.ts tests/server/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:sui": "NODE_OPTIONS=--conditions=react-server tsx --test src/lib/sui/server.test.ts"
   },
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "dependencies": {
     "@mysten/sui": "^2.33.1",
@@ -21,6 +23,7 @@
     "postgres": "^3.4.9",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "server-only": "^0.0.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
