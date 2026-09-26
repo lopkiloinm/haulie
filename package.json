@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts tests/server/*.test.ts",
     "test:e2e": "playwright test",
-    "test:sui": "NODE_OPTIONS=--conditions=react-server tsx --test src/lib/sui/server.test.ts"
+    "test:sui": "NODE_OPTIONS=--conditions=react-server tsx --test src/lib/sui/server.test.ts src/lib/sui/live-escrow.test.ts"
   },
   "engines": {
     "node": "22.x"

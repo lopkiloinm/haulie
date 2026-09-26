@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { INITIAL_STATE } from "../demo";
 import { ESCROW_STATE } from "./types";
+import { LIVE_ESCROW } from "./live-escrow-config";
 
 /** Published by scripts/publish-escrow.mts; override for a redeployed package. */
-export const TESTNET_ESCROW_PACKAGE =
-  "0xd5912d65474abd188664416a95a539da959aa7ca14cc746b7ddc21ca0becce5e";
+export const TESTNET_ESCROW_PACKAGE = LIVE_ESCROW.packageId;
 const GRAPHQL_URL = "https://graphql.testnet.sui.io/graphql";
 const MAX_EVENT_PAGES = 4;
 

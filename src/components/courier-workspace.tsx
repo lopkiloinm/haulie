@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Clock3, Package, Search } from "lucide-react";
 import { formatMoney, isOwnCourierJob, STATUS, type DemoJob } from "@/lib/demo";
+import { formatSui } from "@/lib/sui/live-escrow-config";
 import { CourierMap } from "./courier-map";
 import type { CourierLocationState } from "@/lib/courier-location";
 import {
@@ -194,7 +195,16 @@ export function CourierWorkspace({
                   <span className="courier-job-meta">
                     <span>{job.id}</span>
                     <strong>
-                      {formatMoney(job.fee)} <small>USDC</small>
+                      {job.chain ? (
+                        <>
+                          {formatSui(job.chain.mist).replace(" SUI", "")}{" "}
+                          <small>SUI · on-chain</small>
+                        </>
+                      ) : (
+                        <>
+                          {formatMoney(job.fee)} <small>USDC</small>
+                        </>
+                      )}
                     </strong>
                   </span>
                   <h2>{job.title}</h2>

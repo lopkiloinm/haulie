@@ -16,8 +16,10 @@ import {
   X,
 } from "lucide-react";
 import { DeliveryMap } from "./delivery-map";
+import { SuiWallet } from "./sui-wallet";
 import {
   DEMO_COURIER,
+  INITIAL_STATE,
   isOwnCourierJob,
   STATUS,
   formatMoney,
@@ -25,6 +27,13 @@ import {
   type DemoJob,
   type DemoRole,
 } from "@/lib/demo";
+import {
+  feeInMist,
+  formatSui,
+  suiscan,
+} from "@/lib/sui/live-escrow-config";
+
+const WORLD_JOBS = new Set(INITIAL_STATE.jobs.map((job) => job.id));
 
 export function Modal({
   title,
@@ -129,15 +138,21 @@ export function DeliveryDetail({
   startWithAcceptance = false,
   acceptanceReady = true,
   onWorldVerification,
+  onFund,
 }: {
   job: DemoJob;
   initialRole: DemoRole;
   onClose: () => void;
-  onAction: (id: string, action: DemoAction, reason?: string) => void;
+  onAction: (
+    id: string,
+    action: DemoAction,
+    reason?: string,
+  ) => void | Promise<void>;
   notify: (message: string) => void;
   startWithAcceptance?: boolean;
   acceptanceReady?: boolean;
   onWorldVerification?: (id: string, stage: "ACCEPT" | "PICKUP") => void;
+  onFund?: (id: string) => Promise<void>;
 }) {
   const [role, setRole] = useState<DemoRole>(initialRole);
   const [verification, setVerification] = useState<{
@@ -196,6 +211,27 @@ export function DeliveryDetail({
       }, 700),
     );
   }
+  const chain = job.chain;
+  const canFund =
+    !!onFund &&
+    !chain &&
+    job.status === "FUNDED" &&
+    !job.courier &&
+    WORLD_JOBS.has(job.id);
+  const paidDigest = job.events.findLast((event) => event.digest)?.digest;
+  /** On-chain steps wait for a confirmed transaction before the board moves. */
+  async function act(action: DemoAction | "FUND") {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (action === "FUND") await onFund?.(job.id);
+      else await onAction(job.id, action);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const chainAction = (action: DemoAction) =>
+    chain ? () => act(action) : () => onAction(job.id, action);
   function payout() {
     if (busy) return;
     setBusy(true);
@@ -209,8 +245,8 @@ export function DeliveryDetail({
   const s = STATUS[job.status];
   const steps = [
     {
-      title: "Funds reserved",
-      detail: `${formatMoney(job.fee)} USDC`,
+      title: chain ? "Fee escrowed on Sui" : "Funds reserved",
+      detail: chain ? formatSui(chain.mist) : `${formatMoney(job.fee)} USDC`,
       done: true,
       icon: LockKeyhole,
     },
@@ -246,7 +282,9 @@ export function DeliveryDetail({
       title: "Payment",
       detail:
         job.status === "PAID"
-          ? "Payment recorded"
+          ? chain
+            ? "Paid on Sui"
+            : "Payment recorded"
           : "After delivery confirmation",
       done: job.status === "PAID",
       icon: Wallet,
@@ -321,20 +359,43 @@ export function DeliveryDetail({
               <span>
                 <strong>
                   {job.status === "PAID"
-                    ? "Payment recorded"
+                    ? chain
+                      ? "Paid on Sui"
+                      : "Payment recorded"
                     : job.status === "DISPUTED"
                       ? "Payout frozen"
                       : job.status === "REFUNDED"
-                        ? "Refund recorded"
-                        : "Courier fee reserved"}
+                        ? chain
+                          ? "Refunded on Sui"
+                          : "Refund recorded"
+                        : chain
+                          ? "Courier fee locked on Sui"
+                          : "Courier fee reserved"}
                 </strong>
                 <small>{job.payoutWallet || "Wallet set when accepted"}</small>
               </span>
             </div>
-            <b>
-              {formatMoney(job.fee)} <small>USDC</small>
-            </b>
-            <p>Simulated settlement · no on-chain transfer.</p>
+            {chain ? (
+              <b>{formatSui(chain.mist)}</b>
+            ) : (
+              <b>
+                {formatMoney(job.fee)} <small>USDC</small>
+              </b>
+            )}
+            {chain ? (
+              <p>
+                <a
+                  href={suiscan("object", chain.escrowId)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Escrow {chain.escrowId.slice(0, 8)}…
+                  {chain.escrowId.slice(-4)} on SuiScan
+                </a>
+              </p>
+            ) : (
+              <p>Simulated settlement · no on-chain transfer.</p>
+            )}
           </div>
           {job.courier && (
             <div className="detail-courier">
@@ -477,13 +538,33 @@ export function DeliveryDetail({
                     ) : (
                       <>
                         <h4>Awaiting a courier</h4>
-                        <p>Select Courier to accept this delivery.</p>
+                        <p>
+                          {chain
+                            ? `${formatSui(chain.mist)} is locked on Sui. The courier is paid from escrow after delivery.`
+                            : "Select Courier to accept this delivery."}
+                        </p>
+                        {role === "Merchant" && canFund && (
+                          <>
+                            <SuiWallet compact />
+                            <button
+                              className="button button-primary full-width"
+                              disabled={busy}
+                              onClick={() => act("FUND")}
+                            >
+                              <LockKeyhole size={16} />
+                              {busy
+                                ? "Confirm in your wallet…"
+                                : `Lock ${formatSui(feeInMist(job.fee))} fee on Sui`}
+                            </button>
+                          </>
+                        )}
                         {role === "Merchant" && (
                           <button
                             className="text-button danger-text"
-                            onClick={() => onAction(job.id, "REFUND")}
+                            disabled={busy}
+                            onClick={chainAction("REFUND")}
                           >
-                            Cancel delivery
+                            {chain ? "Cancel and refund on Sui" : "Cancel delivery"}
                           </button>
                         )}
                       </>
@@ -514,7 +595,8 @@ export function DeliveryDetail({
                         {!job.worldPickedUpAt && (
                           <button
                             className="text-button centered"
-                            onClick={() => onAction(job.id, "UNASSIGN")}
+                            disabled={busy}
+                            onClick={chainAction("UNASSIGN")}
                           >
                             Cancel assignment
                           </button>
@@ -528,19 +610,26 @@ export function DeliveryDetail({
                             : "Awaiting pickup verification"}
                         </h4>
                         <p>
-                          {job.pickupVerified
-                            ? "Confirm after handing the parcel to the courier."
-                            : "The courier must verify before handoff."}
+                          {!job.pickupVerified
+                            ? "The courier must verify before handoff."
+                            : chain
+                              ? "Sign with the wallet that funded the escrow to move custody on Sui."
+                              : "Confirm after handing the parcel to the courier."}
                         </p>
+                        {chain && job.pickupVerified && <SuiWallet compact />}
                         <button
                           className="button button-primary full-width"
-                          disabled={!job.pickupVerified}
-                          onClick={() => onAction(job.id, "HANDOFF")}
+                          disabled={!job.pickupVerified || busy}
+                          onClick={chainAction("HANDOFF")}
                         >
                           <Package size={16} />
-                          {job.pickupVerified
-                            ? "Confirm handoff"
-                            : "Awaiting verification"}
+                          {busy
+                            ? "Confirm in your wallet…"
+                            : job.pickupVerified
+                              ? chain
+                                ? "Sign handoff"
+                                : "Confirm handoff"
+                              : "Awaiting verification"}
                         </button>
                       </>
                     ) : (
@@ -569,11 +658,15 @@ export function DeliveryDetail({
                         </label>
                         <button
                           className="button button-primary full-width"
-                          disabled={!receipt}
-                          onClick={() => onAction(job.id, "CONFIRM_RECEIPT")}
+                          disabled={!receipt || busy}
+                          onClick={chainAction("CONFIRM_RECEIPT")}
                         >
                           <CircleCheck size={16} />
-                          Confirm receipt
+                          {busy
+                            ? "Paying courier on Sui…"
+                            : chain
+                              ? "Confirm receipt & pay courier"
+                              : "Confirm receipt"}
                         </button>
                       </>
                     ) : role === "Courier" && isOwnCourierJob(job) ? (
@@ -677,23 +770,43 @@ export function DeliveryDetail({
               <CircleCheck size={30} />
               <h3>Delivery complete</h3>
               <p>
-                {formatMoney(job.fee)} USDC recorded for {job.courier}.
+                {chain
+                  ? `${formatSui(chain.mist)} paid to ${job.courier} on Sui.`
+                  : `${formatMoney(job.fee)} USDC recorded for ${job.courier}.`}
               </p>
+              {chain && paidDigest && (
+                <a href={suiscan("tx", paidDigest)} target="_blank" rel="noreferrer">
+                  View payout transaction
+                </a>
+              )}
             </div>
           )}
           {job.status === "REFUNDED" && (
             <div className="success-panel">
               <RotateCcw size={28} />
               <h3>Delivery refunded</h3>
-              <p>{formatMoney(job.fee)} USDC refund recorded.</p>
+              <p>
+                {chain
+                  ? `${formatSui(chain.mist)} returned to the merchant on Sui.`
+                  : `${formatMoney(job.fee)} USDC refund recorded.`}
+              </p>
             </div>
           )}
-          {[
-            "ASSIGNED",
-            "PICKED_UP",
-            "DELIVERY_CONFIRMED",
-            "PAYOUT_RETRY",
-          ].includes(job.status) &&
+          {chain &&
+            ["ASSIGNED", "PICKED_UP"].includes(job.status) &&
+            !verification && (
+              <p className="report-issue chain-issue-note">
+                <CircleAlert size={14} />
+                Issues with an on-chain fee are reviewed by the Haulie operator.
+              </p>
+            )}
+          {!chain &&
+            [
+              "ASSIGNED",
+              "PICKED_UP",
+              "DELIVERY_CONFIRMED",
+              "PAYOUT_RETRY",
+            ].includes(job.status) &&
             !verification && (
               <div className="report-issue">
                 {issue ? (
@@ -753,7 +866,19 @@ export function DeliveryDetail({
           {job.events.map((event, index) => (
             <div key={index}>
               <span />
-              <strong>{event.title}</strong>
+              <strong>
+                {event.digest ? (
+                  <a
+                    href={suiscan("tx", event.digest)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {event.title}
+                  </a>
+                ) : (
+                  event.title
+                )}
+              </strong>
               <small>{event.actor}</small>
               <time suppressHydrationWarning>
                 {new Date(event.at).toLocaleTimeString("en-US", {

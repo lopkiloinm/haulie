@@ -15,7 +15,19 @@ export const DEMO_COURIER = {
   initials: "JC",
   payoutWallet: "jamie.sui (test)",
 } as const;
-export type DemoEvent = { title: string; actor: string; at: string };
+export type DemoEvent = {
+  title: string;
+  actor: string;
+  at: string;
+  digest?: string;
+};
+/** A real Sui testnet escrow backing this delivery's courier fee. */
+export type ChainEscrow = {
+  escrowId: string;
+  mist: string;
+  assigned?: boolean;
+  receiptToken?: string;
+};
 export type DemoJob = {
   id: string;
   title: string;
@@ -40,6 +52,7 @@ export type DemoJob = {
   createdAt: string;
   disputeReason?: string;
   beforeDispute?: JobStatus;
+  chain?: ChainEscrow;
 };
 export type DemoState = {
   jobs: DemoJob[];
@@ -398,6 +411,21 @@ function isDemoJob(value: unknown): value is DemoJob {
   if (value.beforeDispute !== undefined && !isStatus(value.beforeDispute))
     return false;
   if (
+    value.chain !== undefined &&
+    !(
+      isRecord(value.chain) &&
+      isSuiWalletAddress(value.chain.escrowId) &&
+      typeof value.chain.mist === "string" &&
+      /^[1-9]\d{0,19}$/.test(value.chain.mist) &&
+      (value.chain.assigned === undefined ||
+        typeof value.chain.assigned === "boolean") &&
+      (value.chain.receiptToken === undefined ||
+        (typeof value.chain.receiptToken === "string" &&
+          /^[\w-]{20,100}$/.test(value.chain.receiptToken)))
+    )
+  )
+    return false;
+  if (
     value.status === "DISPUTED" &&
     (!isNonemptyString(value.disputeReason) ||
       !["ASSIGNED", "PICKED_UP", "DELIVERY_CONFIRMED", "PAYOUT_RETRY"].includes(
@@ -412,9 +440,28 @@ function isDemoJob(value: unknown): value is DemoJob {
         isRecord(event) &&
         isNonemptyString(event.title) &&
         isNonemptyString(event.actor) &&
-        isDateString(event.at),
+        isDateString(event.at) &&
+        (event.digest === undefined ||
+          (typeof event.digest === "string" &&
+            /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(event.digest))),
     )
   );
+}
+
+/** Replaces the local transition's event with the confirmed on-chain one. */
+export function withChainEvent(
+  job: DemoJob,
+  title: string,
+  actor: string,
+  digest: string,
+): DemoJob {
+  return {
+    ...job,
+    events: [
+      ...job.events.slice(0, -1),
+      { title, actor, at: new Date().toISOString(), digest },
+    ],
+  };
 }
 
 export function parseSnapshot(snapshot: string): DemoState {

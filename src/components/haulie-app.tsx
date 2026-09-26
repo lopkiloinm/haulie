@@ -73,11 +73,13 @@ import {
   readSnapshot,
   subscribeDemo,
   transitionJob,
+  withChainEvent,
   type DemoAction,
   type DemoJob,
   type DemoRole,
   type DemoState,
 } from "@/lib/demo";
+import { feeInMist, formatSui } from "@/lib/sui/live-escrow-config";
 
 type Page = "Overview" | "Deliveries" | "Couriers" | "Wallet" | "Activity";
 type Dialog =
@@ -198,6 +200,15 @@ export function HaulieApp({
       const current = parseSnapshot(readSnapshot());
       const updated = reconcileWorldJobs(current, status.jobs);
       if (updated !== current) save(updated);
+      for (const job of updated.jobs)
+        if (
+          job.chain &&
+          !job.chain.assigned &&
+          job.status === "ASSIGNED" &&
+          isOwnCourierJob(job) &&
+          status.jobs[job.id]?.payoutWallet
+        )
+          void assignOnChain(job);
     }
     if (!callbackHandled.current && typeof window !== "undefined") {
       callbackHandled.current = true;
@@ -281,11 +292,166 @@ export function HaulieApp({
       throw new Error("Could not refresh verification. Reload to try again.");
     receiveWorldStatus(await response.json());
   }
+  function saveJob(id: string, update: (job: DemoJob) => DemoJob) {
+    const current = parseSnapshot(readSnapshot());
+    save({
+      ...current,
+      jobs: current.jobs.map((j) => (j.id === id ? update(j) : j)),
+    });
+  }
+  async function fundJob(id: string) {
+    try {
+      const target = parseSnapshot(readSnapshot()).jobs.find((j) => j.id === id);
+      if (!target || target.chain || target.status !== "FUNDED" || target.courier)
+        throw new Error("Only an open delivery can be funded on Sui.");
+      const { fundEscrow } = await import("@/lib/sui/escrow-client");
+      const { escrowId, digest } = await fundEscrow(id, target.fee);
+      const mist = feeInMist(target.fee).toString();
+      saveJob(id, (job) => ({
+        ...job,
+        chain: { escrowId, mist },
+        events: [
+          ...job.events,
+          {
+            title: `${formatSui(mist)} fee escrowed on Sui`,
+            actor: "Merchant",
+            at: new Date().toISOString(),
+            digest,
+          },
+        ],
+      }));
+      notify(`${formatSui(mist)} locked in escrow on Sui testnet.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Funding failed.");
+    }
+  }
+  const assigning = useRef(new Set<string>());
+  async function assignOnChain(job: DemoJob) {
+    if (!job.chain || assigning.current.has(job.id)) return;
+    assigning.current.add(job.id);
+    try {
+      const { escrowRequest } = await import("@/lib/sui/escrow-client");
+      const { digest } = await escrowRequest("assign", {
+        job: job.id,
+        escrowId: job.chain.escrowId,
+      });
+      saveJob(job.id, (j) =>
+        j.chain && !j.chain.assigned
+          ? {
+              ...j,
+              chain: { ...j.chain, assigned: true },
+              events: [
+                ...j.events,
+                {
+                  title: "Escrow assigned to courier wallet on Sui",
+                  actor: "Haulie operator",
+                  at: new Date().toISOString(),
+                  digest,
+                },
+              ],
+            }
+          : j,
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "On-chain assignment failed.");
+    } finally {
+      assigning.current.delete(job.id);
+    }
+  }
+  /** Settles the on-chain side first; the local board only follows a confirmed digest. */
+  async function chainStep(target: DemoJob, action: DemoAction) {
+    const chain = target.chain!;
+    const { escrowRequest, refundEscrow, signHandoff } = await import(
+      "@/lib/sui/escrow-client"
+    );
+    const body = { job: target.id, escrowId: chain.escrowId };
+    switch (action) {
+      case "HANDOFF": {
+        const signature = await signHandoff(target.id, chain.escrowId);
+        const result = await escrowRequest<{ receiptToken: string }>("handoff", {
+          ...body,
+          signature,
+        });
+        return {
+          title: "Handoff signed · custody to courier on Sui",
+          actor: "Merchant",
+          digest: result.digest,
+          chain: { ...chain, receiptToken: result.receiptToken },
+        };
+      }
+      case "CONFIRM_RECEIPT": {
+        if (!chain.receiptToken)
+          throw new Error("The merchant must confirm the handoff first.");
+        const { digest } = await escrowRequest("deliver", {
+          ...body,
+          token: chain.receiptToken,
+        });
+        return {
+          title: `${formatSui(chain.mist)} paid to courier on Sui`,
+          actor: "Haulie operator",
+          digest,
+          chain,
+        };
+      }
+      case "UNASSIGN": {
+        const { digest } = await escrowRequest("unassign", body);
+        return {
+          title: "Assignment released on Sui",
+          actor: "Courier",
+          digest,
+          chain: { ...chain, assigned: false },
+        };
+      }
+      case "REFUND":
+        return {
+          title: `${formatSui(chain.mist)} refunded to merchant on Sui`,
+          actor: "Merchant",
+          digest: await refundEscrow(chain.escrowId),
+          chain,
+        };
+      case "DISPUTE":
+      case "PAY":
+      case "FAIL_PAYOUT":
+      case "RESOLVE":
+        throw new Error(
+          "This fee is held on Sui. Contact the Haulie operator to open a case.",
+        );
+      default:
+        return null;
+    }
+  }
   async function updateJob(id: string, action: DemoAction, reason?: string) {
     try {
+      const before = parseSnapshot(readSnapshot()).jobs.find((j) => j.id === id);
+      if (!before) throw new Error("Delivery not found.");
+      const onChain = before.chain ? await chainStep(before, action) : null;
       const current = parseSnapshot(readSnapshot());
       const target = current.jobs.find((j) => j.id === id);
       if (!target) throw new Error("Delivery not found.");
+      if (onChain) {
+        let next = transitionJob(target, action, reason);
+        if (action === "CONFIRM_RECEIPT") next = transitionJob(next, "PAY");
+        next = withChainEvent(
+          { ...next, chain: onChain.chain },
+          onChain.title,
+          onChain.actor,
+          onChain.digest,
+        );
+        save({
+          ...current,
+          jobs: current.jobs.map((j) => (j.id === id ? next : j)),
+        });
+        if (action === "UNASSIGN" && target.worldAcceptedAt) {
+          await fetch("/api/world-sandbox/release", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ job: id }),
+          });
+          await refreshWorld();
+        }
+        notify(onChain.title + ".");
+        return;
+      }
       if (
         action === "ACCEPT" &&
         (!current.courierEnrolled || !current.walletConnected)
@@ -1168,6 +1334,7 @@ export function HaulieApp({
             setSelected(null);
           }}
           onAction={updateJob}
+          onFund={fundJob}
           notify={notify}
         />
       )}

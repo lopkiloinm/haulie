@@ -13,46 +13,29 @@ import {
   type Pending,
   type Session,
 } from "@/lib/world-sandbox/protocol";
+import {
+  cookieOptions as options,
+  pendingCookie,
+  readWorldSession as session,
+  secure,
+  sessionCookie,
+  worldConfig as config,
+  worldReady as ready,
+} from "@/lib/world-sandbox/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const secure = process.env.NODE_ENV === "production";
-const prefix = secure ? "__Host-" : "";
-const pendingCookie = `${prefix}haulie-world-pending`;
-const sessionCookie = `${prefix}haulie-world-session`;
-const options = { httpOnly: true, secure, sameSite: "lax" as const, path: "/" };
 const jobs = ["HL-1046", "HL-1048", "HL-1047", "HL-1045", "HL-1044", "HL-1043"];
 const jobSchema = z.enum(jobs as [string, ...string[]]);
 const walletSchema = z
   .string()
   .regex(/^0x[0-9a-fA-F]{64}$/)
   .transform((address) => address.toLowerCase());
-function config() {
-  return {
-    clientId: process.env.WORLD_SANDBOX_CLIENT_ID || "",
-    secret: process.env.WORLD_SANDBOX_CLIENT_SECRET || "",
-    sessionKey: process.env.WORLD_SANDBOX_SESSION_SECRET || "",
-    origin: process.env.WORLD_SANDBOX_ORIGIN || "https://haulie-chi.vercel.app",
-  };
-}
-function ready() {
-  const c = config();
-  return !!(c.clientId && c.secret && c.sessionKey.length >= 32);
-}
 function json(data: object, status = 200) {
   return NextResponse.json(data, {
     status,
     headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
   });
-}
-async function session(request: NextRequest): Promise<Session> {
-  return (
-    (await unseal<Session>(
-      request.cookies.get(sessionCookie)?.value,
-      config().sessionKey,
-      "session",
-    )) || { jobs: {} }
-  );
 }
 function finish(
   result: string,
@@ -148,8 +131,8 @@ export async function GET(
     if (typeof tokens.id_token !== "string" || tokens.id_token.length > 20000)
       return finish("failed", attempt.job, attempt.returnTo);
     const subject = await verifyIdToken(tokens.id_token, c.clientId, attempt);
-    // Only the validated provider token can execute these browser-scoped sandbox actions.
-    // This separate ledger never assigns live jobs or authorizes Sui payments.
+    // Only the validated provider token can record these browser-scoped actions.
+    // /api/escrow relies on this record before assigning or moving a Sui escrow.
     const updated = applyVerifiedAction(
       await session(request),
       attempt,

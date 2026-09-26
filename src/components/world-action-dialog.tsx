@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowRight, Check, Globe2, Wallet } from "lucide-react";
 import type { DemoJob } from "@/lib/demo";
 import { formatMoney } from "@/lib/demo";
+import { formatSui } from "@/lib/sui/live-escrow-config";
 import { Modal } from "./delivery-detail";
 import { SuiWallet } from "./sui-wallet";
 import type { WorldConnectionStatus } from "./workspace-connections";
@@ -114,7 +115,11 @@ export function WorldActionDialog({
             {job.pickup} → {job.destination}
           </small>
         </div>
-        <span>{formatMoney(job.fee)} USDC</span>
+        <span>
+          {job.chain
+            ? formatSui(job.chain.mist)
+            : `${formatMoney(job.fee)} USDC`}
+        </span>
       </div>
       <div className="world-action-connection">
         <span>
@@ -158,7 +163,9 @@ export function WorldActionDialog({
                     : stage === "ACCEPT"
                       ? "Verify with World to accept this delivery."
                       : "Verify again with the same World identity to confirm pickup."}{" "}
-        Test delivery fees are simulated.
+        {job.chain
+          ? "The fee is locked in escrow on Sui testnet and pays your wallet after delivery."
+          : "Test delivery fees are simulated."}
       </p>
       {error && (
         <p className="world-action-error" role="alert">
