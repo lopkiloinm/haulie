@@ -83,3 +83,7 @@ The project uses Vercel's Next.js runtime and Node.js 22. Add live credentials o
 - `spec.md` — original product requirements
 
 World ID establishes uniqueness and session continuity, not legal identity, background checks, parcel condition, or physical location. The live escrow model is operator-attested delivery with on-chain escrow.
+
+### Official World sandbox
+
+The courier workspace now links to [/world-sandbox](https://haulie-chi.vercel.app/world-sandbox): a deployed integration with World's official OIDC sandbox. It validates tokens on the server and requires fresh same-identity authentication for acceptance and pickup. World's sandbox uses mocked identities; orders are isolated browser-scoped tests and payments remain simulated. Configuration, validation results, and integration debrief: [docs/world-sandbox.md](docs/world-sandbox.md).

@@ -454,8 +454,16 @@ export function DeliveryDetail({
                     Cancel
                   </button>
                   <small className="proof-disclaimer">
-                    No World ID proof is requested or verified in this demo.
+                    This simulator does not request a World proof.
                   </small>
+                  <a
+                    href={`/world-sandbox?job=${encodeURIComponent(job.id)}`}
+                    className="button button-secondary full-width"
+                    style={{ marginTop: 14, textDecoration: "none" }}
+                  >
+                    <ShieldCheck size={17} />
+                    Try official World sandbox
+                  </a>
                 </div>
               ) : (
                 <div className="stage-action">

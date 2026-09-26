@@ -22,7 +22,7 @@ async function completeFreshCheck(dialog: Locator, action: string) {
   ).toBeVisible();
   await expect(
     dialog.getByText(
-      "No World ID proof is requested or verified in this demo.",
+      "This simulator does not request a World proof.",
     ),
   ).toBeVisible();
   await dialog

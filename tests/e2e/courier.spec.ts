@@ -99,7 +99,7 @@ test("courier discovers a funded offer and accepts it only after a fresh check",
   dialog = page.getByRole("dialog", { name: offerTitle, exact: true });
   await expect(
     dialog.getByText(
-      "No World ID proof is requested or verified in this demo.",
+      "This simulator does not request a World proof.",
     ),
   ).toBeVisible();
   expect((await storedDelivery(page)).status).toBe("FUNDED");

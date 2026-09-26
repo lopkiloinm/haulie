@@ -843,6 +843,9 @@ export function HaulieApp({
                     </p>
                   </div>
                   <div className="readiness-actions">
+                    <a href="/world-sandbox" className="button button-secondary button-small" style={{ textDecoration: "none" }}>
+                      <ShieldCheck size={15} /> World sandbox
+                    </a>
                     <button
                       className="button button-secondary button-small"
                       onClick={() => {
