@@ -5352,3 +5352,8 @@ h1 {
     margin: 0;
   }
 }
+.workspace-button strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}

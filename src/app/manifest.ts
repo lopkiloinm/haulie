@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Haulie — neighborhood delivery",
     short_name: "Haulie",
     description:
-      "A verified human at every handoff. Payment ready at delivery.",
+      "Manage deliveries, routes, verification, and payments in one workspace.",
     start_url: "/",
     display: "standalone",
     background_color: "#f7f8f5",

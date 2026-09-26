@@ -121,7 +121,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
         } else {
           setError(
             result.message ||
-              "Your request couldn’t be confirmed. Contact the merchant.",
+              "Unable to confirm. Contact the merchant.",
           );
         }
         return;
@@ -133,7 +133,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
         token.current = "";
         setResultMessage(
           result.chainSyncPending
-            ? "Automatic payout is paused. The on-chain freeze is pending. Contact the merchant for next steps."
+            ? "Payout is paused. The on-chain freeze is pending. Contact the merchant."
             : "The courier’s payout is paused. Contact the merchant for next steps.",
         );
         setScreen("disputed");
@@ -147,7 +147,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
         setScreen("settled");
       } else {
         setError(
-          "We couldn’t confirm the status. Ask the merchant to check your delivery.",
+          "Unable to confirm delivery status. Contact the merchant.",
         );
       }
     } catch {
@@ -202,7 +202,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                 : screen === "disputed"
                   ? "Issue reported"
                   : screen === "settled"
-                    ? "Delivery already settled"
+                    ? "Delivery settled"
                     : invalid
                       ? "Delivery link unavailable"
                       : showIssue
@@ -221,8 +221,8 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
               <div className="recipient-state" role="status">
                 <p>
                   {screen === "expired"
-                    ? "This link has expired or was already used. Ask the merchant to check your delivery or send a new link."
-                    : "Reopen the original delivery link from your merchant. If it no longer works, ask for a new link."}
+                    ? "This link has expired or was used. Ask the merchant for a new link."
+                    : "Open the delivery link from your merchant, or ask for a new one."}
                 </p>
               </div>
             )}
@@ -238,9 +238,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                         disabled={busy !== null}
                         onChange={(event) => setReceived(event.target.checked)}
                       />
-                      <span>
-                        I received my parcel in good condition.
-                      </span>
+                      <span>I received my parcel in good condition.</span>
                     </label>
                     <button
                       type="button"
@@ -276,9 +274,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                   </div>
                 ) : (
                   <form className="recipient-issue-form" onSubmit={reportIssue}>
-                    <label htmlFor="delivery-issue">
-                      What happened?
-                    </label>
+                    <label htmlFor="delivery-issue">What happened?</label>
                     <textarea
                       id="delivery-issue"
                       value={reason}
@@ -288,7 +284,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                       rows={4}
                       required
                       disabled={busy !== null}
-                      placeholder="Describe the damage, missing parcel, or other issue."
+                      placeholder="Describe the issue."
                     />
                     <button
                       className="recipient-primary"
@@ -318,7 +314,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                         setError("");
                       }}
                     >
-                      Back to confirmation
+                      Back
                     </button>
                   </form>
                 )}
@@ -331,7 +327,7 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
                 )}
                 {!showIssue && (
                   <p className="recipient-payment-note">
-                    Confirmation allows the courier to be paid. You won’t be charged.
+                    Confirmation allows courier payment. You won’t be charged.
                   </p>
                 )}
               </>
@@ -341,11 +337,9 @@ export default function RecipientConfirmation({ jobId }: { jobId: string }) {
               <div className="recipient-state" role="status">
                 {screen === "confirmed" ? (
                   <>
-                    <p>
-                      The merchant and courier can see your confirmation.
-                    </p>
+                    <p>The merchant and courier have your confirmation.</p>
                     <p className="recipient-small">
-                      Payment is processed separately. You can close this page.
+                      You can close this page.
                     </p>
                   </>
                 ) : (

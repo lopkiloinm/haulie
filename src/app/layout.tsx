@@ -17,9 +17,9 @@ const manrope = Manrope({
   display: "swap",
 });
 export const metadata: Metadata = {
-  title: "Haulie — Good deliveries. Real humans.",
+  title: "Haulie — Delivery management",
   description:
-    "Your neighborhood, delivered. A verified human at every handoff. Payment ready at delivery. Explore the Haulie delivery marketplace demo.",
+    "Manage deliveries, routes, verification, and payments in one workspace.",
   applicationName: "Haulie",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Haulie" },
   manifest: "/manifest.webmanifest",

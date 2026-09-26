@@ -20,10 +20,15 @@ export type Pending = {
   job: string;
   stage: Stage;
   subject?: string;
+  returnTo?: "courier" | "world";
+  payoutWallet?: string;
 };
 export type Session = {
   subject?: string;
-  jobs: Record<string, { accepted: number; pickedUp?: number }>;
+  jobs: Record<
+    string,
+    { accepted: number; pickedUp?: number; payoutWallet?: string }
+  >;
 };
 const keys = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`), {
   timeoutDuration: 8000,
@@ -32,7 +37,12 @@ const keys = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`), {
 });
 export const now = () => Math.floor(Date.now() / 1000);
 export const random = () => randomBytes(32).toString("base64url");
-export function pending(job: string, stage: Stage, subject?: string): Pending {
+export function pending(
+  job: string,
+  stage: Stage,
+  subject?: string,
+  options: Pick<Pending, "returnTo" | "payoutWallet"> = {},
+): Pending {
   return {
     state: random(),
     nonce: random(),
@@ -41,6 +51,7 @@ export function pending(job: string, stage: Stage, subject?: string): Pending {
     job,
     stage,
     subject,
+    ...options,
   };
 }
 export function authorizationUrl(
@@ -124,7 +135,7 @@ export async function verifyIdToken(
 }
 function key(secret: string) {
   if (secret.length < 32)
-    throw new Error("Sandbox session key is not configured.");
+    throw new Error("World session key is not configured.");
   return createHash("sha256").update(secret).digest();
 }
 export async function seal(
@@ -184,7 +195,12 @@ export function applyVerifiedAction(
       ...session.jobs,
       [attempt.job]:
         attempt.stage === "ACCEPT"
-          ? { accepted: time }
+          ? {
+              accepted: time,
+              ...(attempt.payoutWallet
+                ? { payoutWallet: attempt.payoutWallet }
+                : {}),
+            }
           : { ...previous, pickedUp: time },
     },
   };

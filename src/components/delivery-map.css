@@ -1,0 +1,20 @@
+.delivery-area-preview {
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  isolation: isolate;
+}
+.delivery-area-preview .courier-map,
+.delivery-area-preview .courier-map-loading,
+.delivery-area-preview .courier-map-canvas {
+  min-height: 0;
+  height: 100%;
+}
+.delivery-area-preview .courier-map-caption {
+  padding: 6px 8px;
+  gap: 8px;
+  min-height: 30px;
+  font-size: 10px;
+  top: 10px;
+  left: 10px;
+}

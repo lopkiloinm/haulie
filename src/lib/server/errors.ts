@@ -23,7 +23,7 @@ export function requiredEnv(name: string): string {
     throw new ApiError(
       503,
       "NOT_CONFIGURED",
-      "Live services are not configured. Use the clearly labeled demo.",
+      "This service is not available yet.",
     );
   return value;
 }

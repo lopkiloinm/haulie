@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { WorldSandbox } from "@/components/world-sandbox";
 export const metadata: Metadata = {
-  title: "World sandbox · Haulie",
+  title: "World verification · Haulie",
   robots: { index: false, follow: false },
 };
 export default async function Page({

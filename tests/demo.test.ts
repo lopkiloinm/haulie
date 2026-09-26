@@ -33,7 +33,7 @@ describe("demo delivery authorization and custody", () => {
     assert.equal(assigned.acceptVerified, true);
     assert.equal(assigned.pickupVerified, undefined);
     assert.equal(assigned.courier, "Jamie Chen");
-    assert.equal(assigned.payoutWallet, "jamie.sui (demo)");
+    assert.equal(assigned.payoutWallet, "jamie.sui (test)");
 
     const verified = transitionJob(assigned, "VERIFY_PICKUP");
     assert.equal(
@@ -65,7 +65,7 @@ describe("demo delivery authorization and custody", () => {
     );
     assert.equal(
       paid.events.at(-1)?.title,
-      "Demo payout completed · no on-chain transfer",
+      "Simulated payout · no on-chain transfer",
     );
     assert.equal(paid.events.length, original.events.length + 5);
     assert.deepEqual(
@@ -319,7 +319,7 @@ describe("demo disputes, cancellations, and settlement recovery", () => {
     assert.equal(paid.status, "PAID");
     assert.equal(
       paid.events.filter((event) =>
-        event.title.startsWith("Demo payout completed"),
+        event.title.startsWith("Simulated payout"),
       ).length,
       1,
     );

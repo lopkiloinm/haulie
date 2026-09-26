@@ -18,13 +18,10 @@ type Status = {
 const messages: Record<string, string> = {
   accepted: "Delivery accepted. Verify again at pickup.",
   "picked-up": "Pickup verified.",
-  denied: "Verification declined. Delivery unchanged.",
-  expired:
-    "Verification expired. Start a new check.",
-  failed:
-    "Verification failed. Try again with the same World identity.",
-  unavailable:
-    "World sandbox is unavailable. Try again later.",
+  denied: "Verification declined.",
+  expired: "Verification expired. Start a new check.",
+  failed: "Verification failed. Try again with the same World identity.",
+  unavailable: "World is unavailable. Try again later.",
 };
 export function WorldSandbox({
   initialJob = "HL-1046",
@@ -58,9 +55,7 @@ export function WorldSandbox({
       })
       .catch(() => {
         if (active)
-          setMessage(
-            "Could not connect to World. Refresh to try again.",
-          );
+          setMessage("Could not connect to World. Refresh to try again.");
       });
     return () => {
       active = false;
@@ -97,7 +92,7 @@ export function WorldSandbox({
         method: "POST",
       });
       if (!result.ok) throw new Error();
-      setMessage("Verification cancelled. Delivery unchanged.");
+      setMessage("Verification cancelled.");
       setBusy(false);
     } catch {
       setMessage(
@@ -110,7 +105,7 @@ export function WorldSandbox({
     <main className="world-sandbox">
       <header className="sandbox-header">
         <Link href="/courier" className="sandbox-back">
-          <ArrowLeft size={16} /> Back to Haulie
+          <ArrowLeft size={16} /> Deliveries
         </Link>
         <Link href="/wallet" className="sandbox-back">
           Sui wallet <ArrowUpRight size={16} />
@@ -120,13 +115,13 @@ export function WorldSandbox({
         <section className="sandbox-intro">
           <div className="sandbox-title-row">
             <h1>World verification</h1>
-            <span className="sandbox-network">Sandbox</span>
+            <span className="sandbox-network">Test identities</span>
           </div>
           <p>
-            Verify to accept a delivery, then confirm the same identity at pickup.
+            Verify to accept. Use the same identity at pickup.
           </p>
         </section>
-        <section className="sandbox-card" aria-label="World sandbox delivery">
+        <section className="sandbox-card" aria-label="World delivery verification">
           <div className="sandbox-card-top">
             <h2>Delivery {job}</h2>
             <span className="sandbox-badge">
@@ -134,7 +129,7 @@ export function WorldSandbox({
                 ? "Pickup confirmed"
                 : delivery
                   ? "Accepted"
-                  : "Available to accept"}
+                  : "Available"}
             </span>
           </div>
           <ol className="sandbox-steps">
@@ -148,7 +143,7 @@ export function WorldSandbox({
             <li className={delivery?.pickedUp ? "complete" : ""}>
               <span>{delivery?.pickedUp ? <Check size={16} /> : "2"}</span>
               <div>
-                <strong>Verify again at pickup</strong>
+                <strong>Verify pickup</strong>
                 <p>Use the same World identity.</p>
               </div>
             </li>
@@ -177,31 +172,26 @@ export function WorldSandbox({
                 : !status
                   ? "Checking connection…"
                   : delivery
-                    ? "Verify pickup with World"
-                    : "Accept with World sandbox"}
+                    ? "Verify pickup"
+                    : "Accept with World"}
               {!busy && <ArrowUpRight size={17} />}
             </button>
           )}
           {delivery?.pickedUp && (
             <div className="sandbox-success" role="status">
-              <Check size={20} /> Both World checks complete
+              <Check size={20} /> Verification complete
             </div>
           )}
           {!delivery?.pickedUp && (
             <button className="text-button centered" onClick={cancel}>
-              Cancel pending verification
+              Cancel verification
             </button>
           )}
         </section>
         <footer className="sandbox-footer">
-          <p>Test identities. No real deliveries or payouts. Session lasts 24 hours.</p>
-          <a
-            href="https://sandbox.auth.world.org/docs"
-            target="_blank"
-            rel="noreferrer"
-          >
-            World sandbox docs <ArrowUpRight size={14} />
-          </a>
+          <p>
+            World uses test identities. Verification does not move funds.
+          </p>
         </footer>
       </div>
     </main>

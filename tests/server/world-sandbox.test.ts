@@ -78,6 +78,35 @@ test("protected sandbox action requires acceptance before same-identity pickup a
   assert.throws(() => applyVerifiedAction(collected, pickup, "human-1"));
 });
 
+test("World preserves the accepted wallet across fresh pickup verification", async () => {
+  const wallet = `0x${"ab".repeat(32)}`;
+  const accept = pending("HL-1046", "ACCEPT", undefined, {
+    returnTo: "courier",
+    payoutWallet: wallet,
+  });
+  const sealed = await seal(accept, "a".repeat(64), "pending", 300);
+  const restored = await unseal<typeof accept>(
+    sealed,
+    "a".repeat(64),
+    "pending",
+  );
+  assert.ok(restored);
+  assert.equal(restored.returnTo, "courier");
+  assert.equal(restored.payoutWallet, wallet);
+  const accepted = applyVerifiedAction({ jobs: {} }, restored, "human-1", 100);
+  assert.equal(accepted.jobs[accept.job].payoutWallet, wallet);
+  const pickup = pending("HL-1046", "PICKUP", "human-1", {
+    returnTo: "courier",
+    payoutWallet: `0x${"cd".repeat(32)}`,
+  });
+  const collected = applyVerifiedAction(accepted, pickup, "human-1", 200);
+  assert.deepEqual(collected.jobs[accept.job], {
+    accepted: 100,
+    pickedUp: 200,
+    payoutWallet: wallet,
+  });
+});
+
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
 test("ID tokens require trusted RS256 signatures, exact issuer/audience, expiration and nonce", async () => {
   const { publicKey, privateKey } = await generateKeyPair("RS256");

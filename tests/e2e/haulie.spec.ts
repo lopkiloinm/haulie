@@ -19,10 +19,10 @@ async function completeFreshCheck(dialog: Locator, action: string) {
     dialog.getByRole("heading", { name: "Verify this delivery" }),
   ).toBeVisible();
   await expect(
-    dialog.getByText("This simulator does not request a World proof."),
+    dialog.getByText("Test check. No World proof is requested."),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Simulate fresh verification", exact: true })
+    .getByRole("button", { name: "Run test verification", exact: true })
     .click();
   await expect(
     dialog.getByRole("heading", { name: "Verify this delivery" }),
@@ -76,7 +76,7 @@ test("new delivery follows every independent verification, handoff, and payment 
     .nth(1)
     .fill("Mission District");
   await dialog.getByLabel("Recipient name").fill("Taylor Example");
-  await dialog.getByLabel("Courier fee (demo USDC)").fill("6.25");
+  await dialog.getByLabel("Courier fee (USDC)").fill("6.25");
   await dialog
     .getByRole("button", { name: "Review delivery", exact: true })
     .click();
@@ -88,7 +88,7 @@ test("new delivery follows every independent verification, handoff, and payment 
     dialog.getByText("890 Valencia St", { exact: true }),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Reserve demo funds & create", exact: true })
+    .getByRole("button", { name: "Create delivery", exact: true })
     .click();
 
   dialog = page.getByRole("dialog", {
@@ -101,20 +101,20 @@ test("new delivery follows every independent verification, handoff, and payment 
     await dialog.locator(".modal-header .mini-label").innerText()
   ).replace("DELIVERY ", "");
   await expect(
-    dialog.getByRole("button", { name: "Process demo payout", exact: true }),
+    dialog.getByRole("button", { name: "Simulate payment", exact: true }),
   ).toHaveCount(0);
   await selectRole(dialog, "Courier");
-  await completeFreshCheck(dialog, "Verify & accept delivery");
+  await completeFreshCheck(dialog, "Verify & accept");
   await expect(
     dialog.getByText("Ready for pickup", { exact: true }),
   ).toBeVisible();
 
   await selectRole(dialog, "Merchant");
   await expect(
-    dialog.getByRole("button", { name: "Waiting for courier verification" }),
+    dialog.getByRole("button", { name: "Awaiting verification" }),
   ).toBeDisabled();
   await selectRole(dialog, "Courier");
-  await completeFreshCheck(dialog, "Verify for this pickup");
+  await completeFreshCheck(dialog, "Verify pickup");
   await expect(
     dialog.getByRole("button", { name: "Pickup check complete", exact: true }),
   ).toBeDisabled();
@@ -124,21 +124,21 @@ test("new delivery follows every independent verification, handoff, and payment 
 
   await selectRole(dialog, "Merchant");
   await dialog
-    .getByRole("button", { name: "Confirm parcel handoff", exact: true })
+    .getByRole("button", { name: "Confirm handoff", exact: true })
     .click();
   await expect(dialog.getByText("On the way", { exact: true })).toBeVisible();
   await confirmRecipient(dialog);
   await dialog
-    .getByRole("button", { name: "Process demo payout", exact: true })
+    .getByRole("button", { name: "Simulate payment", exact: true })
     .click();
   await expect(
     dialog.getByRole("heading", { name: "Delivery complete" }),
   ).toBeVisible();
   await expect(
-    dialog.getByText("Simulated funds · no on-chain transfer."),
+    dialog.getByText("Simulated settlement · no on-chain transfer."),
   ).toBeVisible();
   await expect(
-    dialog.getByRole("button", { name: "Process demo payout", exact: true }),
+    dialog.getByRole("button", { name: "Simulate payment", exact: true }),
   ).toHaveCount(0);
 
   await page.reload();
@@ -173,7 +173,7 @@ test("dispute freezes a confirmed payment and operator resolution permits a safe
     })
     .click();
   await dialog
-    .getByLabel("Tell us what happened")
+    .getByLabel("What happened?")
     .fill("The recipient reported damage to the outer packaging.");
   await dialog
     .getByRole("button", { name: "Report & freeze payout", exact: true })
@@ -185,41 +185,41 @@ test("dispute freezes a confirmed payment and operator resolution permits a safe
     dialog.getByText("Payout locked during review", { exact: true }),
   ).toBeVisible();
   await expect(
-    dialog.getByRole("button", { name: "Process demo payout", exact: true }),
+    dialog.getByRole("button", { name: "Simulate payment", exact: true }),
   ).toHaveCount(0);
   await expect(
     dialog.getByRole("button", {
-      name: "Resolve demo case & resume",
+      name: "Resolve & resume",
       exact: true,
     }),
   ).toHaveCount(0);
 
   await selectRole(dialog, "Operator");
   await dialog
-    .getByRole("button", { name: "Resolve demo case & resume", exact: true })
+    .getByRole("button", { name: "Resolve & resume", exact: true })
     .click();
   await expect(
     dialog.getByText("Payout processing", { exact: true }),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Try a failed settlement", exact: true })
+    .getByRole("button", { name: "Test payment failure", exact: true })
     .click();
   await expect(dialog.getByText("Payout retry", { exact: true })).toBeVisible();
   await expect(
-    dialog.getByText("Receipt confirmed", { exact: true }),
+    dialog.locator(".delivery-timeline").getByText("Receipt confirmed", { exact: true }),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Retry demo payout", exact: true })
+    .getByRole("button", { name: "Retry simulated payment", exact: true })
     .click();
   await expect(
     dialog.getByRole("heading", { name: "Delivery complete" }),
   ).toBeVisible();
   await expect(
-    dialog.getByRole("button", { name: "Retry demo payout", exact: true }),
+    dialog.getByRole("button", { name: "Retry simulated payment", exact: true }),
   ).toHaveCount(0);
   await dialog.locator("summary").click();
   await expect(
-    dialog.getByText("Demo payout completed · no on-chain transfer", {
+    dialog.getByText("Simulated payout · no on-chain transfer", {
       exact: true,
     }),
   ).toHaveCount(1);
@@ -236,7 +236,7 @@ test("modal retains keyboard focus through content changes and restores focus on
   const dialog = page.getByRole("dialog", { name: "The weekend reading list" });
   await selectRole(dialog, "Courier");
   await dialog
-    .getByRole("button", { name: "Verify & accept delivery", exact: true })
+    .getByRole("button", { name: "Verify & accept", exact: true })
     .click();
   await page.keyboard.press("Tab");
   await expect

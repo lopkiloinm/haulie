@@ -23,9 +23,11 @@ type Balance = { address: string; sui: string; usdc: string };
 function WalletContent({
   compact = false,
   standalone = false,
+  onAccountChange,
 }: {
   compact?: boolean;
   standalone?: boolean;
+  onAccountChange?: (address: string | null) => void;
 }) {
   const Heading = standalone ? "h1" : "h2";
   const account = useCurrentAccount();
@@ -49,6 +51,9 @@ function WalletContent({
   const [copied, setCopied] = useState(false);
   const sending = useRef(false);
   const address = account?.address;
+  useEffect(() => {
+    onAccountChange?.(address ?? null);
+  }, [address, onAccountChange]);
   useEffect(() => {
     if (!address || compact) return;
     const controller = new AbortController();
@@ -374,6 +379,7 @@ function WalletContent({
 export default function SuiWalletClient(props: {
   compact?: boolean;
   standalone?: boolean;
+  onAccountChange?: (address: string | null) => void;
 }) {
   return (
     <DAppKitProvider dAppKit={dAppKit}>

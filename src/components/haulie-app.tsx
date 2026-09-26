@@ -1,7 +1,20 @@
 "use client";
 import { SuiWallet } from "./sui-wallet";
+import { CourierWorkspace } from "./courier-workspace";
+import {
+  WorkspaceConnections,
+  type WorldConnectionStatus,
+} from "./workspace-connections";
+import { WorldActionDialog } from "./world-action-dialog";
+import { reconcileWorldJobs } from "@/lib/courier-world";
+import {
+  useCourierLocation,
+  type CourierLocationState,
+} from "@/lib/courier-location";
+import { TORANOMON_FORUM } from "@/lib/map-locations";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -49,7 +62,6 @@ import {
 import { DeliveryMap } from "./delivery-map";
 import { DeliveryDetail, Modal } from "./delivery-detail";
 import {
-  DEMO_COURIER,
   INITIAL_SNAPSHOT,
   INITIAL_STATE,
   STATUS,
@@ -67,7 +79,8 @@ import {
 } from "@/lib/demo";
 
 type Page = "Overview" | "Deliveries" | "Couriers" | "Wallet" | "Activity";
-type Dialog = "create" | "guide" | "notifications" | "settings" | null;
+type Dialog =
+  "create" | "guide" | "notifications" | "settings" | "connections" | null;
 const NAV: { label: Page; icon: LucideIcon }[] = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Deliveries", icon: Package },
@@ -141,6 +154,7 @@ export function HaulieApp({
 }: {
   initialRole?: DemoRole;
 }) {
+  const router = useRouter();
   const snapshot = useSyncExternalStore(
     subscribeDemo,
     readSnapshot,
@@ -149,11 +163,22 @@ export function HaulieApp({
   const state = useMemo(() => parseSnapshot(snapshot), [snapshot]);
   const [page, setPage] = useState<Page>("Overview");
   const [role, setRole] = useState<DemoRole>(initialRole);
+  const [venueSelected, setVenueSelected] = useState(true);
+  const [venueRevision, setVenueRevision] = useState(0);
   const [roleOpen, setRoleOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [startAcceptance, setStartAcceptance] = useState(false);
+  const [worldStatus, setWorldStatus] = useState<WorldConnectionStatus | null>(
+    null,
+  );
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [worldAction, setWorldAction] = useState<{
+    id: string;
+    stage: "ACCEPT" | "PICKUP";
+  } | null>(null);
+  const callbackHandled = useRef(false);
+  const [resumeJobId, setResumeJobId] = useState<string | null>(null);
   const [filter, setFilter] = useState("All deliveries");
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState("");
@@ -162,15 +187,53 @@ export function HaulieApp({
   const selectedJob = state.jobs.find((j) => j.id === selected);
   const workspaceJobs =
     role === "Courier" ? state.jobs.filter(isOwnCourierJob) : state.jobs;
-  const availableJobs = state.jobs.filter(
-    (j) => j.status === "FUNDED" && !j.courier,
-  );
-  const availableMatches = availableJobs.filter((j) =>
-    `${j.title} ${j.id} ${j.pickup} ${j.destination} ${j.category}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
-  const acceptanceReady = state.courierEnrolled && state.walletConnected;
+  const acceptanceReady =
+    role === "Courier"
+      ? !!walletAddress && !!worldStatus?.configured
+      : state.courierEnrolled && state.walletConnected;
+  function receiveWorldStatus(status: WorldConnectionStatus | null) {
+    setWorldStatus(status);
+    if (status?.connected) {
+      const current = parseSnapshot(readSnapshot());
+      const updated = reconcileWorldJobs(current, status.jobs);
+      if (updated !== current) save(updated);
+    }
+    if (!callbackHandled.current && typeof window !== "undefined") {
+      callbackHandled.current = true;
+      const params = new URLSearchParams(window.location.search);
+      const result = params.get("result");
+      const jobId = params.get("job");
+      if (result) {
+        // Query strings are navigation hints, never proof of verification.
+        const record = jobId ? status?.jobs[jobId] : null;
+        if (
+          (result === "accepted" && record?.accepted) ||
+          (result === "picked-up" && record?.pickedUp)
+        ) {
+          setResumeJobId(jobId);
+          notify(
+            result === "accepted" ? "Delivery accepted." : "Pickup verified.",
+          );
+        } else if (
+          ["denied", "failed", "expired", "unavailable"].includes(result)
+        )
+          notify(
+            result === "denied"
+              ? "Verification cancelled."
+              : "Verification did not complete. Try again.",
+          );
+        window.history.replaceState(
+          window.history.state,
+          "",
+          window.location.pathname,
+        );
+      }
+    }
+  }
+  function requestWorld(id: string, stage: "ACCEPT" | "PICKUP") {
+    setSelected(null);
+    setWorldAction({ id, stage });
+  }
   const active = workspaceJobs.filter(
     (j) => !["PAID", "REFUNDED"].includes(j.status),
   );
@@ -205,11 +268,19 @@ export function HaulieApp({
       persistDemo(next);
     } catch {
       notify(
-        "Browser storage is unavailable. Please enable it to save demo changes.",
+        "Browser storage is unavailable. Please enable it to save changes.",
       );
     }
   }
-  function updateJob(id: string, action: DemoAction, reason?: string) {
+  async function refreshWorld() {
+    const response = await fetch("/api/world-sandbox/status", {
+      cache: "no-store",
+    });
+    if (!response.ok)
+      throw new Error("Could not refresh verification. Reload to try again.");
+    receiveWorldStatus(await response.json());
+  }
+  async function updateJob(id: string, action: DemoAction, reason?: string) {
     try {
       const current = parseSnapshot(readSnapshot());
       const target = current.jobs.find((j) => j.id === id);
@@ -219,29 +290,40 @@ export function HaulieApp({
         (!current.courierEnrolled || !current.walletConnected)
       )
         throw new Error(
-          "Complete demo enrollment and connect the demo wallet first.",
+          "Complete test enrollment and connect the wallet first.",
         );
+      if (action === "UNASSIGN" && target.worldAcceptedAt) {
+        const response = await fetch("/api/world-sandbox/release", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job: id }),
+        });
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Could not cancel the assignment.");
+        }
+      }
       const next = transitionJob(target, action, reason);
       save({
         ...current,
         jobs: current.jobs.map((j) => (j.id === id ? next : j)),
       });
+      if (action === "UNASSIGN" && target.worldAcceptedAt) await refreshWorld();
       notify(
         {
           ACCEPT: "Delivery accepted. A new pickup check will be required.",
           VERIFY_PICKUP:
             "Pickup check complete. The merchant can now confirm handoff.",
           HANDOFF: "Parcel handed over. Your delivery is on the way.",
-          CONFIRM_RECEIPT:
-            "Receipt confirmed. The demo payout is ready to process.",
-          PAY: "Demo payout complete. No real funds were transferred.",
+          CONFIRM_RECEIPT: "Receipt confirmed. Simulated payment is ready.",
+          PAY: "Simulated payment complete. No funds were transferred.",
           FAIL_PAYOUT: "Payout paused. Funds remain reserved for a safe retry.",
           DISPUTE:
             "Issue reported. Payout is frozen until the case is resolved.",
           RESOLVE: "Case resolved. The delivery can continue.",
           UNASSIGN:
             "Assignment released. The funded delivery is available again.",
-          REFUND: "Delivery cancelled. Demo funds returned.",
+          REFUND: "Delivery cancelled. Simulated funds returned.",
           ATTEMPT: "Delivery attempt recorded. Payment remains locked.",
         }[action],
       );
@@ -250,12 +332,16 @@ export function HaulieApp({
     }
   }
   function navigate(next: Page) {
+    if (next === "Overview" && role === "Courier" && !venueSelected)
+      courierLocation.locate();
     setPage(next);
     setMobileOpen(false);
     setQuery("");
     setFilter("All deliveries");
   }
   function switchWorkspace(nextRole: DemoRole) {
+    if (nextRole === "Courier" && role !== "Courier" && !venueSelected)
+      courierLocation.locate();
     setRole(nextRole);
     setRoleOpen(false);
     navigate("Overview");
@@ -308,7 +394,7 @@ export function HaulieApp({
           STATUS[j.status].label,
           j.fee,
           j.payoutWallet || "",
-          "Demo — no real funds",
+          "Simulated — no real funds",
         ]
           .map(quote)
           .join(","),
@@ -319,17 +405,29 @@ export function HaulieApp({
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "haulie-demo-deliveries.csv";
+    a.download = "haulie-deliveries.csv";
     a.click();
     URL.revokeObjectURL(url);
     notify("Your delivery report has been downloaded.");
   }
   const courierMode = role === "Courier" && page === "Overview";
+  const courierLocation = useCourierLocation(courierMode && !venueSelected);
+  const mapLocation: CourierLocationState = venueSelected
+    ? { status: "ready", point: TORANOMON_FORUM.point, accuracy: null }
+    : courierLocation.location;
+  function locateCourier() {
+    setVenueSelected(false);
+    courierLocation.locate();
+  }
+  function useForumLocation() {
+    setVenueSelected(true);
+    setVenueRevision((value) => value + 1);
+  }
   const recipientMode = role === "Recipient" && page === "Overview";
   const operatorMode = role === "Operator" && page === "Overview";
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${courierMode ? " map-workspace-shell" : ""}`}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
@@ -358,7 +456,9 @@ export function HaulieApp({
             </span>
             <span>
               <strong>{role === "Merchant" ? state.businessName : role}</strong>
-              <small>{role} account</small>
+              <small>
+                {role === "Courier" ? "Workspace" : `${role} account`}
+              </small>
             </span>
             <ChevronDown size={15} />
           </button>
@@ -397,16 +497,17 @@ export function HaulieApp({
               {label === "Deliveries" && (
                 <span className="nav-count">{active.length}</span>
               )}
-              {page === label && label !== "Deliveries" && (
-                <span className="nav-active-dot" />
-              )}
             </button>
           ))}
-          <a className="nav-item" href="/world-sandbox">
-            <ShieldCheck size={20} />
-            <span>World ID</span>
-            <ArrowUpRight size={15} />
-          </a>
+          {!courierMode && (
+            <button
+              className="nav-item"
+              onClick={() => setDialog("connections")}
+            >
+              <Globe2 size={20} />
+              <span>Connections</span>
+            </button>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <button className="nav-item" onClick={() => setDialog("guide")}>
@@ -418,19 +519,6 @@ export function HaulieApp({
             <Settings2 size={20} />
             <span>Settings</span>
           </button>
-          <div className="profile">
-            <Avatar
-              initials={role === "Courier" ? DEMO_COURIER.initials : "AL"}
-            />
-            <span>
-              <strong>
-                {role === "Courier" ? DEMO_COURIER.name : "Alex Lee"}
-              </strong>
-              <small>
-                {role === "Courier" ? "Courier · demo" : "Business owner"}
-              </small>
-            </span>
-          </div>
         </div>
       </aside>
       <div className="main-shell">
@@ -443,12 +531,30 @@ export function HaulieApp({
             >
               <Menu size={21} />
             </button>
-            <span className="breadcrumb-parent">
-              Workspace <ChevronRight size={13} />
-            </span>
-            <span>{pageLabel(page)}</span>
+            {courierMode ? (
+              <h1 className="courier-page-title">Find deliveries</h1>
+            ) : (
+              <>
+                <span className="breadcrumb-parent">
+                  Workspace <ChevronRight size={13} />
+                </span>
+                <span>{pageLabel(page)}</span>
+              </>
+            )}
           </div>
           <div className="topbar-actions">
+            {courierMode && (
+              <button
+                className="courier-city"
+                onClick={locateCourier}
+                aria-label="Use my current location"
+              >
+                <MapPin size={14} />{" "}
+                {venueSelected || courierLocation.location.status !== "ready"
+                  ? "Toranomon Hills Forum"
+                  : "Near you"}
+              </button>
+            )}
             {!courierMode && (
               <label className="global-search">
                 <Search size={16} />
@@ -466,11 +572,7 @@ export function HaulieApp({
                 <kbd>⌘ K</kbd>
               </label>
             )}
-            <button className="demo-badge" onClick={() => setDialog("guide")}>
-              <span />
-              Demo deliveries
-            </button>
-            <span className="topbar-divider" />
+
             <button
               className="icon-button bell-button"
               aria-label="View notifications"
@@ -481,43 +583,64 @@ export function HaulieApp({
             </button>
           </div>
         </header>
-        <main id="main-content">
-          <section className="page-heading">
-            <div>
-              <h1>
-                {page === "Overview"
-                  ? courierMode
-                    ? "Find deliveries"
-                    : recipientMode
-                      ? "Incoming deliveries"
-                      : operatorMode
-                        ? "Operations"
-                        : "Overview"
-                  : pageLabel(page)}
-              </h1>
-            </div>
-            <div className="heading-actions">
-              {page === "Wallet" ? (
-                <button
-                  className="button button-secondary"
-                  onClick={downloadReport}
-                >
-                  <ArrowDownToLine size={17} />
-                  Export demo ledger
-                </button>
-              ) : (
-                role === "Merchant" && (
+        <main
+          id="main-content"
+          className={courierMode ? "courier-main" : undefined}
+        >
+          {!courierMode && (
+            <section className="page-heading">
+              <div>
+                <h1>
+                  {page === "Overview"
+                    ? courierMode
+                      ? "Find deliveries"
+                      : recipientMode
+                        ? "Incoming deliveries"
+                        : operatorMode
+                          ? "Operations"
+                          : "Overview"
+                    : pageLabel(page)}
+                </h1>
+              </div>
+              <div className="heading-actions">
+                {page === "Wallet" ? (
                   <button
-                    className="button button-primary"
-                    onClick={() => setDialog("create")}
+                    className="button button-secondary"
+                    onClick={downloadReport}
                   >
-                    <Plus size={18} />
-                    New delivery
+                    <ArrowDownToLine size={17} />
+                    Export ledger
                   </button>
-                )
-              )}
-            </div>
-          </section>
+                ) : (
+                  role === "Merchant" && (
+                    <button
+                      className="button button-primary"
+                      onClick={() => setDialog("create")}
+                    >
+                      <Plus size={18} />
+                      New delivery
+                    </button>
+                  )
+                )}
+              </div>
+            </section>
+          )}
+
+          {courierMode && (
+            <CourierWorkspace
+              jobs={state.jobs}
+              location={mapLocation}
+              onLocate={locateCourier}
+              venueSelected={venueSelected}
+              onVenueSelect={useForumLocation}
+              locationRevision={courierLocation.revision + venueRevision}
+              resumeJobId={resumeJobId}
+              onDetails={setSelected}
+              onVerify={requestWorld}
+              onWorldStatus={receiveWorldStatus}
+              onWalletChange={setWalletAddress}
+            />
+          )}
 
           {page === "Overview" && role === "Merchant" && (
             <>
@@ -591,14 +714,14 @@ export function HaulieApp({
                     <h2>Delivery map</h2>
                     <span className="live-label">
                       <span />
-                      Sample route
+                      Area preview
                     </span>
                   </div>
                   <div className="map-container">
-                    <DeliveryMap stage={spotlight?.status} />
+                    <DeliveryMap job={spotlight} />
                     <div className="map-location">
                       <MapPin size={12} />
-                      San Francisco, CA
+                      {spotlight?.pickup || "Delivery area"}
                     </div>
                   </div>
                   {spotlight && (
@@ -685,242 +808,88 @@ export function HaulieApp({
                   {displayJobs.length}{" "}
                   {displayJobs.length === 1 ? "delivery" : "deliveries"}
                 </span>
-                <span>All fees shown in demo USDC</span>
+                <span>Fees in simulated USDC</span>
               </div>
             </section>
           )}
 
-          {(courierMode || page === "Couriers") && (
+          {page === "Couriers" && (
             <>
-              {courierMode && (
-                <section className="courier-readiness card">
-                  <div className="readiness-icon">
-                    <ShieldCheck size={26} />
-                  </div>
-                  <div>
-                    <h3>
-                      {acceptanceReady
-                        ? "Ready to accept"
-                        : state.courierEnrolled
-                          ? "Demo setup incomplete"
-                          : "Complete enrollment"}
-                    </h3>
+              <div className="info-banner">
+                <ShieldCheck size={20} />
+                <p>
+                  Sample courier profiles. Verification does not include
+                  background checks.
+                </p>
+              </div>
+              <div className="courier-grid">
+                {[
+                  {
+                    name: "Jamie Chen",
+                    initials: "JC",
+                    area: "Toranomon & Shinbashi",
+                    vehicle: "Bicycle",
+                    deliveries: 142,
+                  },
+                  {
+                    name: "Sam Rivera",
+                    initials: "SR",
+                    area: "Atago & Nishi-Shimbashi",
+                    vehicle: "E-bike",
+                    deliveries: 98,
+                  },
+                  {
+                    name: "Taylor Kim",
+                    initials: "TK",
+                    area: "Kamiyacho & Shiba Park",
+                    vehicle: "Bicycle",
+                    deliveries: 116,
+                  },
+                  {
+                    name: "Alex Morgan",
+                    initials: "AM",
+                    area: "Azabudai & Toranomon",
+                    vehicle: "E-bike",
+                    deliveries: 84,
+                  },
+                ].map((c) => (
+                  <div className="card courier-card" key={c.name}>
+                    <div className="courier-card-top">
+                      <Avatar initials={c.initials} />
+                      <span className="badge badge-green">
+                        <span className="status-dot" />
+                        Sample profile
+                      </span>
+                    </div>
+                    <h3>{c.name}</h3>
                     <p>
-                      {state.courierEnrolled
-                        ? "Each delivery requires a new check."
-                        : "Enroll to try the delivery flow."}
+                      <MapPin size={14} />
+                      {c.area}
                     </p>
-                  </div>
-                  <div className="readiness-actions">
+                    <span className="courier-verification">
+                      <ShieldCheck size={15} />
+                      Test verification
+                    </span>
+                    <div className="courier-card-stats">
+                      <span>
+                        <Bike size={16} />
+                        {c.vehicle}
+                      </span>
+                      <span>{c.deliveries} sample deliveries</span>
+                    </div>
                     <button
-                      className="button button-secondary button-small"
+                      className="text-button"
                       onClick={() => {
-                        save({
-                          ...state,
-                          courierEnrolled: !state.courierEnrolled,
-                        });
-                        notify(
-                          state.courierEnrolled
-                            ? "Demo enrollment reset."
-                            : "Demo enrollment complete.",
-                        );
+                        setQuery(c.name);
+                        setFilter("All deliveries");
+                        setPage("Deliveries");
                       }}
                     >
-                      {state.courierEnrolled ? (
-                        <>
-                          <Check size={15} />
-                          Demo enrolled
-                        </>
-                      ) : (
-                        "Try demo enrollment"
-                      )}
+                      View deliveries <ArrowUpRight size={15} />
                     </button>
                   </div>
-                </section>
-              )}
-              {courierMode ? (
-                <>
-                  <div className="section-title">
-                    <h2>Available deliveries</h2>
-                    <span>
-                      {availableJobs.length} funded{" "}
-                      {availableJobs.length === 1 ? "offer" : "offers"}
-                    </span>
-                  </div>
-                  <div className="marketplace-tools">
-                    <label className="marketplace-search">
-                      <Search size={17} />
-                      <input
-                        type="search"
-                        aria-label="Search available deliveries"
-                        placeholder="Search area or parcel"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  {!acceptanceReady && (
-                    <div className="notice courier-setup-notice">
-                      <ShieldCheck size={18} />
-                      <p>Complete demo setup to accept deliveries.</p>
-                    </div>
-                  )}
-                  <div className="offer-grid">
-                    {availableMatches.map((j) => (
-                      <article
-                        className="card offer-card"
-                        aria-label={j.title}
-                        key={j.id}
-                      >
-                        <div className="offer-top">
-                          <span className="category-icon">
-                            <Package size={22} />
-                          </span>
-                          <span className="badge badge-green">
-                            <LockKeyhole size={12} />
-                            Fee reserved
-                          </span>
-                        </div>
-                        <span className="mini-label">
-                          {j.id} · {j.category}
-                        </span>
-                        <h3>{j.title}</h3>
-                        <div className="offer-route">
-                          <span>
-                            <i />
-                            {j.pickup}
-                          </span>
-                          <span>
-                            <i />
-                            {j.destination}
-                          </span>
-                        </div>
-                        <div className="offer-bottom">
-                          <span>
-                            <strong>{formatMoney(j.fee)}</strong> USDC
-                            <small>{j.window}</small>
-                          </span>
-                        </div>
-
-                        <div className="offer-actions">
-                          <button
-                            className="button button-secondary button-small"
-                            onClick={() => setSelected(j.id)}
-                          >
-                            View details
-                          </button>
-                          <button
-                            className="button button-primary button-small"
-                            disabled={!acceptanceReady}
-                            onClick={() => {
-                              setStartAcceptance(true);
-                              setSelected(j.id);
-                            }}
-                          >
-                            Accept delivery <ArrowRight size={15} />
-                          </button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                  {availableMatches.length === 0 && (
-                    <div className="card">
-                      <EmptyState
-                        title={query ? "No matches" : "No available deliveries"}
-                        text={
-                          query
-                            ? "Try another area or clear your search."
-                            : "Create a sample delivery in the merchant workspace."
-                        }
-                      />
-                    </div>
-                  )}
-                  <section className="card courier-active">
-                    <div className="section-header">
-                      <h2>Your active deliveries</h2>
-                    </div>
-                    <DeliveryTable jobs={active} onSelect={setSelected} />
-                  </section>
-                </>
-              ) : (
-                <>
-                  <div className="info-banner">
-                    <ShieldCheck size={20} />
-                    <p>
-                      Sample courier profiles. Verification does not include
-                      background checks.
-                    </p>
-                  </div>
-                  <div className="courier-grid">
-                    {[
-                      {
-                        name: "Jamie Chen",
-                        initials: "JC",
-                        area: "Mission & Hayes Valley",
-                        vehicle: "Bicycle",
-                        deliveries: 142,
-                      },
-                      {
-                        name: "Sam Rivera",
-                        initials: "SR",
-                        area: "Pacific Heights & Marina",
-                        vehicle: "E-bike",
-                        deliveries: 98,
-                      },
-                      {
-                        name: "Taylor Kim",
-                        initials: "TK",
-                        area: "Castro & Noe Valley",
-                        vehicle: "Bicycle",
-                        deliveries: 116,
-                      },
-                      {
-                        name: "Alex Morgan",
-                        initials: "AM",
-                        area: "SoMa & Nob Hill",
-                        vehicle: "E-bike",
-                        deliveries: 84,
-                      },
-                    ].map((c) => (
-                      <div className="card courier-card" key={c.name}>
-                        <div className="courier-card-top">
-                          <Avatar initials={c.initials} />
-                          <span className="badge badge-green">
-                            <span className="status-dot" />
-                            Demo profile
-                          </span>
-                        </div>
-                        <h3>{c.name}</h3>
-                        <p>
-                          <MapPin size={14} />
-                          {c.area}
-                        </p>
-                        <span className="courier-verification">
-                          <ShieldCheck size={15} />
-                          Demo verification
-                        </span>
-                        <div className="courier-card-stats">
-                          <span>
-                            <Bike size={16} />
-                            {c.vehicle}
-                          </span>
-                          <span>{c.deliveries} sample deliveries</span>
-                        </div>
-                        <button
-                          className="text-button"
-                          onClick={() => {
-                            setQuery(c.name);
-                            setFilter("All deliveries");
-                            setPage("Deliveries");
-                          }}
-                        >
-                          View deliveries <ArrowUpRight size={15} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+                ))}
+              </div>
             </>
           )}
 
@@ -928,7 +897,7 @@ export function HaulieApp({
             <section className="card">
               <div className="section-header">
                 <h2>Incoming parcels</h2>
-                <span className="badge badge-muted">Recipient demo</span>
+                <span className="badge badge-muted">Recipient</span>
               </div>
               <div className="info-banner inset-info">
                 <Package size={19} />
@@ -981,7 +950,7 @@ export function HaulieApp({
               <section className="card">
                 <div className="section-header">
                   <h2>Exceptions & settlement</h2>
-                  <span className="badge badge-muted">Operator demo</span>
+                  <span className="badge badge-muted">Operator</span>
                 </div>
                 <DeliveryTable
                   jobs={state.jobs.filter((j) =>
@@ -1000,7 +969,7 @@ export function HaulieApp({
               <SuiWallet />
               <details className="demo-ledger">
                 <summary>
-                  Demo delivery ledger <span>Simulated USDC</span>
+                  Delivery ledger <span>Simulated USDC</span>
                   <ChevronDown size={16} />
                 </summary>
                 <div className="wallet-grid">
@@ -1008,7 +977,9 @@ export function HaulieApp({
                     <div className="balance-heading">
                       <span>
                         <Wallet size={19} />
-                        {role === "Courier" ? "Demo earnings" : "Demo balance"}
+                        {role === "Courier"
+                          ? "Simulated earnings"
+                          : "Simulated balance"}
                       </span>
                       <span className="network-tag">
                         <span />
@@ -1077,7 +1048,7 @@ export function HaulieApp({
                     <div>
                       <h2>Payment history</h2>
                     </div>
-                    <span className="badge badge-muted">Demo USDC</span>
+                    <span className="badge badge-muted">Simulated USDC</span>
                   </div>
                   <div className="payment-list">
                     {workspaceJobs.map((j) => (
@@ -1111,9 +1082,9 @@ export function HaulieApp({
                         </span>
                         <span className="payment-status">
                           {j.status === "PAID"
-                            ? "Demo completed"
+                            ? "Completed"
                             : j.status === "REFUNDED"
-                              ? "Demo returned"
+                              ? "Returned"
                               : j.status === "DISPUTED"
                                 ? "Frozen"
                                 : "Reserved"}
@@ -1191,15 +1162,38 @@ export function HaulieApp({
           key={selectedJob.id}
           job={selectedJob}
           initialRole={role}
-          startWithAcceptance={startAcceptance}
-          acceptanceReady={acceptanceReady}
+          acceptanceReady={role === "Courier" ? true : acceptanceReady}
+          onWorldVerification={role === "Courier" ? requestWorld : undefined}
           onClose={() => {
             setSelected(null);
-            setStartAcceptance(false);
           }}
           onAction={updateJob}
           notify={notify}
         />
+      )}
+      {worldAction && state.jobs.find((job) => job.id === worldAction.id) && (
+        <WorldActionDialog
+          job={state.jobs.find((job) => job.id === worldAction.id)!}
+          stage={worldAction.stage}
+          status={worldStatus}
+          wallet={walletAddress}
+          onWalletChange={setWalletAddress}
+          onUpdated={async () => {
+            await refreshWorld();
+            setResumeJobId(worldAction.id);
+            setWorldAction(null);
+          }}
+          onClose={() => setWorldAction(null)}
+        />
+      )}
+      {dialog === "connections" && (
+        <Modal title="Connections" onClose={() => setDialog(null)}>
+          <WorkspaceConnections
+            onVerify={() => router.push("/world-sandbox")}
+            onStatus={receiveWorldStatus}
+            onWalletChange={setWalletAddress}
+          />
+        </Modal>
       )}
       {dialog === "create" && (
         <CreateDelivery
@@ -1216,7 +1210,7 @@ export function HaulieApp({
       {dialog === "guide" && (
         <Modal
           title="How it works"
-          subtitle="Demo deliveries"
+          subtitle="Delivery workflow"
           onClose={() => setDialog(null)}
         >
           <div className="guide-steps">
@@ -1256,7 +1250,7 @@ export function HaulieApp({
             <Sparkles size={19} />
             <p>
               Deliveries and payouts are simulated. World verification and the
-              Sui testnet wallet are available separately.
+              Sui testnet wallet are connected in the courier workspace.
             </p>
           </div>
 
@@ -1498,7 +1492,10 @@ function CreateDelivery({
 }) {
   const [fee, setFee] = useState("6.00");
   const [step, setStep] = useState(1);
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState<Record<string, string>>({
+    pickupArea: TORANOMON_FORUM.name,
+    pickupAddress: TORANOMON_FORUM.address,
+  });
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.currentTarget)) as Record<
@@ -1527,7 +1524,7 @@ function CreateDelivery({
       createdAt: now,
       events: [
         { title: "Delivery created", actor: "Merchant", at: now },
-        { title: "Demo funds reserved", actor: "Merchant", at: now },
+        { title: "Simulated fee reserved", actor: "Merchant", at: now },
       ],
     });
   }
@@ -1588,7 +1585,7 @@ function CreateDelivery({
               Pickup address
               <input
                 name="pickupAddress"
-                placeholder="450 Hayes St"
+                placeholder="Toranomon Hills Mori Tower 5F, 1-23-3 Toranomon"
                 required
                 defaultValue={draft.pickupAddress}
               />
@@ -1597,7 +1594,7 @@ function CreateDelivery({
               Neighborhood
               <input
                 name="pickupArea"
-                placeholder="Hayes Valley"
+                placeholder="Toranomon Hills Forum"
                 required
                 defaultValue={draft.pickupArea}
               />
@@ -1612,7 +1609,7 @@ function CreateDelivery({
               Delivery address
               <input
                 name="destinationAddress"
-                placeholder="890 Valencia St"
+                placeholder="Toranomon 5-chome, Minato-ku, Tokyo"
                 required
                 defaultValue={draft.destinationAddress}
               />
@@ -1621,7 +1618,7 @@ function CreateDelivery({
               Neighborhood
               <input
                 name="destinationArea"
-                placeholder="Mission District"
+                placeholder="Kamiyacho"
                 required
                 defaultValue={draft.destinationArea}
               />
@@ -1638,7 +1635,7 @@ function CreateDelivery({
               />
             </label>
             <label>
-              Courier fee (demo USDC)
+              Courier fee (USDC)
               <input
                 name="fee"
                 type="number"
@@ -1652,7 +1649,7 @@ function CreateDelivery({
             </label>
           </div>
           <p className="fine-print">
-            {formatMoney(available)} demo USDC available. Use sample addresses.
+            {formatMoney(available)} simulated USDC available.
           </p>
           <button type="submit" className="button button-primary full-width">
             Review delivery <ArrowRight size={17} />
@@ -1704,7 +1701,7 @@ function CreateDelivery({
               Back
             </button>
             <button className="button button-primary" onClick={create}>
-              Reserve demo funds & create <ArrowRight size={16} />
+              Create delivery <ArrowRight size={16} />
             </button>
           </div>
         </div>
@@ -1767,7 +1764,7 @@ function SettingsModal({
           />
           <span>
             Show delivery notification indicator
-            <small>Demo workspace preference. No emails are sent.</small>
+            <small>Workspace alerts. No emails are sent.</small>
           </span>
         </label>
         <div className="settings-network">
@@ -1775,7 +1772,7 @@ function SettingsModal({
             <Globe2 size={18} />
             Environment
           </span>
-          <strong>Interactive demo</strong>
+          <strong>Test workspace</strong>
         </div>
         <button className="button button-primary full-width" type="submit">
           Save changes <Check size={16} />
@@ -1794,11 +1791,11 @@ function SettingsModal({
               return;
             }
             save(structuredClone(INITIAL_STATE));
-            notify("Demo workspace reset. A fresh start.");
+            notify("Workspace reset.");
             onClose();
           }}
         >
-          {resetConfirm ? "Confirm reset" : "Reset demo"}
+          {resetConfirm ? "Confirm reset" : "Reset workspace"}
         </button>
       </div>
     </Modal>

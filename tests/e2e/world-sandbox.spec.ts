@@ -11,7 +11,7 @@ test("sandbox never treats a success query parameter as verified identity", asyn
     page.getByText("Connection awaiting setup.", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Accept with World sandbox" }),
+    page.getByRole("button", { name: "Accept with World" }),
   ).toBeDisabled();
   await expect(
     page.getByText("Delivery accepted. Verify again at pickup.", {
@@ -19,7 +19,7 @@ test("sandbox never treats a success query parameter as verified identity", asyn
     }),
   ).toHaveCount(0);
   await expect(
-    page.getByText("Available to accept", { exact: true }),
+    page.getByText("Available", { exact: true }),
   ).toBeVisible();
   for (const width of [360, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 850 });
@@ -50,12 +50,12 @@ test("official World sandbox accepts, verifies fresh pickup, and rejects callbac
       callback = request.url();
   });
   await page.goto("/world-sandbox");
-  await page.getByRole("button", { name: "Accept with World sandbox" }).click();
+  await page.getByRole("button", { name: "Accept with World" }).click();
   await expect(
-    page.getByRole("button", { name: "Verify pickup with World" }),
+    page.getByRole("button", { name: "Verify pickup" }),
   ).toBeVisible({ timeout: 30000 });
-  await page.getByRole("button", { name: "Verify pickup with World" }).click();
-  await expect(page.getByText("Both World checks complete")).toBeVisible({
+  await page.getByRole("button", { name: "Verify pickup" }).click();
+  await expect(page.getByText("Verification complete")).toBeVisible({
     timeout: 30000,
   });
   const before = await (

@@ -128,6 +128,7 @@ export function DeliveryDetail({
   notify,
   startWithAcceptance = false,
   acceptanceReady = true,
+  onWorldVerification,
 }: {
   job: DemoJob;
   initialRole: DemoRole;
@@ -136,6 +137,7 @@ export function DeliveryDetail({
   notify: (message: string) => void;
   startWithAcceptance?: boolean;
   acceptanceReady?: boolean;
+  onWorldVerification?: (id: string, stage: "ACCEPT" | "PICKUP") => void;
 }) {
   const [role, setRole] = useState<DemoRole>(initialRole);
   const [verification, setVerification] = useState<{
@@ -163,8 +165,12 @@ export function DeliveryDetail({
     [],
   );
   function requestProof(stage: "ACCEPT" | "VERIFY_PICKUP") {
+    if (onWorldVerification) {
+      onWorldVerification(job.id, stage === "ACCEPT" ? "ACCEPT" : "PICKUP");
+      return;
+    }
     if (stage === "ACCEPT" && !acceptanceReady) {
-      notify("Enroll and connect a demo wallet first.");
+      notify("Verify your identity and connect a wallet first.");
       return;
     }
     setVerification({
@@ -204,7 +210,7 @@ export function DeliveryDetail({
   const steps = [
     {
       title: "Funds reserved",
-      detail: `${formatMoney(job.fee)} demo USDC`,
+      detail: `${formatMoney(job.fee)} USDC`,
       done: true,
       icon: LockKeyhole,
     },
@@ -220,10 +226,10 @@ export function DeliveryDetail({
       title: "Pickup",
       detail:
         job.status === "ASSIGNED" && job.pickupVerified
-          ? "Verified · awaiting merchant handoff"
+          ? "Awaiting merchant handoff"
           : job.pickupVerified && job.status !== "ASSIGNED"
-            ? "Merchant handoff confirmed"
-            : "Courier check and merchant handoff",
+            ? "Handoff confirmed"
+            : "Verification and handoff required",
       done:
         !!job.pickupVerified && !["ASSIGNED", "FUNDED"].includes(job.status),
       icon: Package,
@@ -231,8 +237,8 @@ export function DeliveryDetail({
     {
       title: "Delivery",
       detail: job.recipientConfirmed
-        ? "Recipient confirmed receipt"
-        : "Recipient confirmation required",
+        ? "Receipt confirmed"
+        : "Awaiting recipient",
       done: !!job.recipientConfirmed,
       icon: CircleCheck,
     },
@@ -240,8 +246,8 @@ export function DeliveryDetail({
       title: "Payment",
       detail:
         job.status === "PAID"
-          ? "Demo payout complete"
-          : "Released after delivery, unless disputed",
+          ? "Payment recorded"
+          : "After delivery confirmation",
       done: job.status === "PAID",
       icon: Wallet,
     },
@@ -258,9 +264,6 @@ export function DeliveryDetail({
         <span className={`badge badge-${s.tone}`}>
           <span className="status-dot" />
           {s.label}
-        </span>
-        <span className="detail-demo-label">
-          Demo · no real funds
         </span>
         <button
           className="text-button"
@@ -280,7 +283,7 @@ export function DeliveryDetail({
       <div className="detail-grid">
         <div className="detail-left">
           <div className="detail-map">
-            <DeliveryMap compact stage={job.status} />
+            <DeliveryMap compact job={job} />
           </div>
           <div className="detail-route">
             <div>
@@ -318,24 +321,20 @@ export function DeliveryDetail({
               <span>
                 <strong>
                   {job.status === "PAID"
-                    ? "Demo payout completed"
+                    ? "Payment recorded"
                     : job.status === "DISPUTED"
                       ? "Payout frozen"
                       : job.status === "REFUNDED"
-                        ? "Demo funds returned"
+                        ? "Refund recorded"
                         : "Courier fee reserved"}
                 </strong>
-                <small>
-                  {job.payoutWallet || "Wallet set when accepted"}
-                </small>
+                <small>{job.payoutWallet || "Wallet set when accepted"}</small>
               </span>
             </div>
             <b>
               {formatMoney(job.fee)} <small>USDC</small>
             </b>
-            <p>
-              Simulated funds · no on-chain transfer.
-            </p>
+            <p>Simulated settlement · no on-chain transfer.</p>
           </div>
           {job.courier && (
             <div className="detail-courier">
@@ -344,7 +343,7 @@ export function DeliveryDetail({
                 <strong>{job.courier}</strong>
                 <small>
                   <ShieldCheck size={13} />
-                  Demo verification
+                  Test verification
                 </small>
               </span>
               <Bike size={21} />
@@ -376,34 +375,38 @@ export function DeliveryDetail({
           </div>
           {job.status !== "PAID" && job.status !== "REFUNDED" && (
             <div className="handoff-controls">
-              <div className="control-heading">
-                <span className="mini-label">Demo role</span>
-              </div>
-              <div className="role-tabs" aria-label="Demo role">
-                {(
-                  ["Merchant", "Courier", "Recipient", "Operator"] as DemoRole[]
-                ).map((r) => (
-                  <button
-                    key={r}
-                    aria-pressed={r === role}
-                    className={r === role ? "role-selected" : ""}
-                    onClick={() => {
-                      setRole(r);
-                      setVerification(null);
-                      setIssue(false);
-                    }}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
+              {!onWorldVerification && (
+                <div className="role-tabs" aria-label="Workspace role">
+                  {(
+                    [
+                      "Merchant",
+                      "Courier",
+                      "Recipient",
+                      "Operator",
+                    ] as DemoRole[]
+                  ).map((r) => (
+                    <button
+                      key={r}
+                      aria-pressed={r === role}
+                      className={r === role ? "role-selected" : ""}
+                      onClick={() => {
+                        setRole(r);
+                        setVerification(null);
+                        setIssue(false);
+                      }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
               {verification ? (
                 <div className="proof-panel">
                   <h3>Verify this delivery</h3>
                   <p>
                     {verification.stage === "ACCEPT"
-                      ? "Complete a demo check to accept this delivery."
-                      : "Complete a new demo check for pickup."}
+                      ? "Verify your identity to accept."
+                      : "Verify again before pickup."}
                   </p>
                   <button
                     className="button button-primary full-width"
@@ -413,12 +416,12 @@ export function DeliveryDetail({
                     {busy ? (
                       <>
                         <span className="button-spinner" />
-                        Simulating check…
+                        Checking…
                       </>
                     ) : (
                       <>
                         <ShieldCheck size={17} />
-                        Simulate fresh verification
+                        Run test verification
                       </>
                     )}
                   </button>
@@ -430,13 +433,13 @@ export function DeliveryDetail({
                     Cancel
                   </button>
                   <small className="proof-disclaimer">
-                    This simulator does not request a World proof.
+                    Test check. No World proof is requested.
                   </small>
                   <a
                     href={`/world-sandbox?job=${encodeURIComponent(job.id)}`}
                     className="text-button centered"
                   >
-                    Open World sandbox
+                    Verify with World
                   </a>
                 </div>
               ) : (
@@ -447,8 +450,8 @@ export function DeliveryDetail({
                       <div className="notice">
                         <ShieldCheck size={18} />
                         <p>
-                          Assigned to {job.courier}. Only they can verify pickup
-                          or cancel. You’re viewing as {DEMO_COURIER.name}.
+                          Assigned to {job.courier}. You’re signed in as{" "}
+                          {DEMO_COURIER.name}.
                         </p>
                       </div>
                     )}
@@ -456,37 +459,31 @@ export function DeliveryDetail({
                     (role === "Courier" ? (
                       <>
                         <h4>Accept this delivery</h4>
-                        <p>
-                          Verify to accept. Your payout wallet will be fixed
-                          for this delivery.
-                        </p>
+                        <p>Your connected wallet receives the delivery fee.</p>
                         <button
                           className="button button-primary full-width"
                           disabled={!acceptanceReady}
                           onClick={() => requestProof("ACCEPT")}
                         >
                           <ShieldCheck size={16} />
-                          Verify & accept delivery
+                          Verify & accept
                         </button>
                         {!acceptanceReady && (
                           <p>
-                            Enroll and connect a demo wallet in the courier
-                            workspace first.
+                            Verify your identity and connect a wallet first.
                           </p>
                         )}
                       </>
                     ) : (
                       <>
                         <h4>Awaiting a courier</h4>
-                        <p>
-                          Select Courier to accept this delivery.
-                        </p>
+                        <p>Select Courier to accept this delivery.</p>
                         {role === "Merchant" && (
                           <button
                             className="text-button danger-text"
                             onClick={() => onAction(job.id, "REFUND")}
                           >
-                            Cancel & refund demo funds
+                            Cancel delivery
                           </button>
                         )}
                       </>
@@ -502,7 +499,7 @@ export function DeliveryDetail({
                         <p>
                           {job.pickupVerified
                             ? "The merchant must confirm handing you the parcel."
-                            : "A new check is required before collecting the parcel."}
+                            : "Verify your identity before collecting the parcel."}
                         </p>
                         <button
                           className="button button-primary full-width"
@@ -512,14 +509,16 @@ export function DeliveryDetail({
                           <ShieldCheck size={16} />
                           {job.pickupVerified
                             ? "Pickup check complete"
-                            : "Verify for this pickup"}
+                            : "Verify pickup"}
                         </button>
-                        <button
-                          className="text-button centered"
-                          onClick={() => onAction(job.id, "UNASSIGN")}
-                        >
-                          Cancel assignment before pickup
-                        </button>
+                        {!job.worldPickedUpAt && (
+                          <button
+                            className="text-button centered"
+                            onClick={() => onAction(job.id, "UNASSIGN")}
+                          >
+                            Cancel assignment
+                          </button>
+                        )}
                       </>
                     ) : role === "Merchant" ? (
                       <>
@@ -531,7 +530,7 @@ export function DeliveryDetail({
                         <p>
                           {job.pickupVerified
                             ? "Confirm after handing the parcel to the courier."
-                            : "Wait for courier verification before handing over the parcel."}
+                            : "The courier must verify before handoff."}
                         </p>
                         <button
                           className="button button-primary full-width"
@@ -540,15 +539,16 @@ export function DeliveryDetail({
                         >
                           <Package size={16} />
                           {job.pickupVerified
-                            ? "Confirm parcel handoff"
-                            : "Waiting for courier verification"}
+                            ? "Confirm handoff"
+                            : "Awaiting verification"}
                         </button>
                       </>
                     ) : (
                       <>
                         <h4>Awaiting pickup</h4>
                         <p>
-                          Courier verification and merchant handoff are required.
+                          Courier verification and merchant handoff are
+                          required.
                         </p>
                       </>
                     ))}
@@ -579,24 +579,19 @@ export function DeliveryDetail({
                     ) : role === "Courier" && isOwnCourierJob(job) ? (
                       <>
                         <h4>Deliver the parcel</h4>
-                        <p>
-                          Ask the recipient to confirm receipt. Record an attempt
-                          if they’re unavailable.
-                        </p>
+                        <p>Ask the recipient to confirm receipt.</p>
                         <button
                           className="button button-secondary full-width"
                           onClick={() => onAction(job.id, "ATTEMPT")}
                         >
                           <MapPin size={16} />
-                          Record unavailable recipient
+                          Recipient unavailable
                         </button>
                       </>
                     ) : (
                       <>
                         <h4>In transit</h4>
-                        <p>
-                          Select Recipient to confirm delivery.
-                        </p>
+                        <p>Select Recipient to confirm delivery.</p>
                         <span className="waiting-label">
                           <Clock3 size={14} />
                           Waiting for recipient confirmation
@@ -614,8 +609,8 @@ export function DeliveryDetail({
                       </h4>
                       <p>
                         {job.status === "PAYOUT_RETRY"
-                          ? "Delivery is confirmed. Retry the demo payout to the same wallet."
-                          : "Delivery is confirmed. Release the reserved courier fee."}
+                          ? "Retry payment to the assigned wallet."
+                          : "Receipt confirmed. The courier fee is ready."}
                       </p>
                       <button
                         className="button button-primary full-width"
@@ -625,14 +620,14 @@ export function DeliveryDetail({
                         {busy ? (
                           <>
                             <span className="button-spinner" />
-                            Processing demo payout…
+                            Processing…
                           </>
                         ) : (
                           <>
                             <Wallet size={16} />
                             {job.status === "PAYOUT_RETRY"
-                              ? "Retry demo payout"
-                              : "Process demo payout"}
+                              ? "Retry simulated payment"
+                              : "Simulate payment"}
                           </>
                         )}
                       </button>
@@ -642,7 +637,7 @@ export function DeliveryDetail({
                           disabled={busy}
                           onClick={() => onAction(job.id, "FAIL_PAYOUT")}
                         >
-                          Try a failed settlement
+                          Test payment failure
                         </button>
                       )}
                     </>
@@ -663,7 +658,7 @@ export function DeliveryDetail({
                           onClick={() => onAction(job.id, "RESOLVE")}
                         >
                           <Check size={16} />
-                          Resolve demo case & resume
+                          Resolve & resume
                         </button>
                       ) : (
                         <span className="waiting-label">
@@ -682,7 +677,7 @@ export function DeliveryDetail({
               <CircleCheck size={30} />
               <h3>Delivery complete</h3>
               <p>
-                {formatMoney(job.fee)} demo USDC paid to {job.courier}.
+                {formatMoney(job.fee)} USDC recorded for {job.courier}.
               </p>
             </div>
           )}
@@ -690,9 +685,7 @@ export function DeliveryDetail({
             <div className="success-panel">
               <RotateCcw size={28} />
               <h3>Delivery refunded</h3>
-              <p>
-                {formatMoney(job.fee)} demo USDC returned to the merchant.
-              </p>
+              <p>{formatMoney(job.fee)} USDC refund recorded.</p>
             </div>
           )}
           {[
@@ -712,7 +705,7 @@ export function DeliveryDetail({
                     }}
                   >
                     <label>
-                      Tell us what happened
+                      What happened?
                       <textarea
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}

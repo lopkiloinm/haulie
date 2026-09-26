@@ -1,3 +1,5 @@
+import { migrateSeededRoute, SEEDED_DELIVERY_ROUTES } from "./tokyo-locations";
+
 export type JobStatus =
   | "FUNDED"
   | "ASSIGNED"
@@ -11,7 +13,7 @@ export type DemoRole = "Merchant" | "Courier" | "Recipient" | "Operator";
 export const DEMO_COURIER = {
   name: "Jamie Chen",
   initials: "JC",
-  payoutWallet: "jamie.sui (demo)",
+  payoutWallet: "jamie.sui (test)",
 } as const;
 export type DemoEvent = { title: string; actor: string; at: string };
 export type DemoJob = {
@@ -32,6 +34,8 @@ export type DemoJob = {
   acceptVerified?: boolean;
   recipientConfirmed?: boolean;
   payoutWallet?: string;
+  worldAcceptedAt?: number;
+  worldPickedUpAt?: number;
   events: DemoEvent[];
   createdAt: string;
   disputeReason?: string;
@@ -45,10 +49,24 @@ export type DemoState = {
   courierEnrolled: boolean;
   walletConnected: boolean;
 };
+export function isWorldTimestamp(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value > 0 &&
+    value <= 8_640_000_000_000
+  );
+}
+export function isSuiWalletAddress(value: unknown): value is string {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/.test(value);
+}
 export function isOwnCourierJob(job: DemoJob) {
+  // Local board ownership only. This never authorizes a payment or a live job.
   return (
     job.courier === DEMO_COURIER.name &&
-    job.payoutWallet === DEMO_COURIER.payoutWallet
+    (job.payoutWallet === DEMO_COURIER.payoutWallet ||
+      (isSuiWalletAddress(job.payoutWallet) &&
+        isWorldTimestamp(job.worldAcceptedAt)))
   );
 }
 export const STATUS: Record<JobStatus, { label: string; tone: string }> = {
@@ -71,17 +89,14 @@ const job = (
   overrides: Partial<DemoJob> & Pick<DemoJob, "id" | "title" | "status">,
 ): DemoJob => ({
   category: "Small parcel",
-  pickup: "Hayes Valley",
-  destination: "Mission District",
-  pickupAddress: "450 Hayes St, San Francisco",
-  destinationAddress: "890 Valencia St, San Francisco",
+  ...SEEDED_DELIVERY_ROUTES[overrides.id],
   recipient: "Jamie Lee",
   fee: 6,
   window: "Within 1 hour",
   createdAt,
   events: [
     ev("Delivery created", "Merchant"),
-    ev("Demo funds reserved", "Merchant"),
+    ev("Test funds reserved", "Merchant"),
   ],
   ...overrides,
 });
@@ -100,9 +115,9 @@ export const INITIAL_STATE: DemoState = {
       initials: "JC",
       acceptVerified: true,
       pickupVerified: true,
-      payoutWallet: "jamie.sui (demo)",
+      payoutWallet: "jamie.sui (test)",
       events: [
-        ev("Demo funds reserved", "Merchant"),
+        ev("Test funds reserved", "Merchant"),
         ev("Fresh acceptance check completed", "Courier"),
         ev("Fresh pickup check completed", "Courier"),
         ev("Parcel handed over", "Merchant"),
@@ -112,19 +127,15 @@ export const INITIAL_STATE: DemoState = {
       id: "HL-1047",
       title: "Fresh blooms for Olivia",
       category: "Flowers & plants",
-      pickup: "Lower Haight",
-      destination: "Pacific Heights",
-      pickupAddress: "203 Fillmore St, San Francisco",
-      destinationAddress: "2100 Jackson St, San Francisco",
       recipient: "Olivia Park",
       status: "ASSIGNED",
       fee: 8.5,
       courier: "Sam Rivera",
       initials: "SR",
       acceptVerified: true,
-      payoutWallet: "sam.sui (demo)",
+      payoutWallet: "sam.sui (test)",
       events: [
-        ev("Demo funds reserved", "Merchant"),
+        ev("Test funds reserved", "Merchant"),
         ev("Fresh acceptance check completed", "Courier"),
       ],
     }),
@@ -132,9 +143,6 @@ export const INITIAL_STATE: DemoState = {
       id: "HL-1046",
       title: "The weekend reading list",
       category: "Books & stationery",
-      pickup: "Hayes Valley",
-      destination: "SoMa",
-      destinationAddress: "830 Folsom St, San Francisco",
       status: "FUNDED",
       fee: 5.5,
     }),
@@ -142,17 +150,15 @@ export const INITIAL_STATE: DemoState = {
       id: "HL-1045",
       title: "Something sweet for Maya",
       category: "Packaged food",
-      pickup: "Castro",
-      destination: "Mission District",
       status: "PICKED_UP",
       courier: "Taylor Kim",
       initials: "TK",
       fee: 7,
       acceptVerified: true,
       pickupVerified: true,
-      payoutWallet: "taylor.sui (demo)",
+      payoutWallet: "taylor.sui (test)",
       events: [
-        ev("Demo funds reserved", "Merchant"),
+        ev("Test funds reserved", "Merchant"),
         ev("Fresh acceptance check completed", "Courier"),
         ev("Fresh pickup check completed", "Courier"),
         ev("Parcel handed over", "Merchant"),
@@ -161,8 +167,6 @@ export const INITIAL_STATE: DemoState = {
     job({
       id: "HL-1044",
       title: "The essentials, delivered",
-      pickup: "Hayes Valley",
-      destination: "Noe Valley",
       status: "PAID",
       courier: "Jamie Chen",
       initials: "JC",
@@ -170,22 +174,20 @@ export const INITIAL_STATE: DemoState = {
       acceptVerified: true,
       pickupVerified: true,
       recipientConfirmed: true,
-      payoutWallet: "jamie.sui (demo)",
+      payoutWallet: "jamie.sui (test)",
       events: [
-        ev("Demo funds reserved", "Merchant"),
+        ev("Test funds reserved", "Merchant"),
         ev("Fresh acceptance check completed", "Courier"),
         ev("Fresh pickup check completed", "Courier"),
         ev("Parcel handed over", "Merchant"),
         ev("Receipt confirmed", "Recipient"),
-        ev("Demo payout completed · no on-chain transfer", "Operator"),
+        ev("Simulated payout · no on-chain transfer", "Operator"),
       ],
     }),
     job({
       id: "HL-1043",
       title: "A thoughtful thank-you",
       category: "Gifts",
-      pickup: "Nob Hill",
-      destination: "Marina",
       status: "PAID",
       courier: "Alex Morgan",
       initials: "AM",
@@ -193,11 +195,11 @@ export const INITIAL_STATE: DemoState = {
       acceptVerified: true,
       pickupVerified: true,
       recipientConfirmed: true,
-      payoutWallet: "alex.sui (demo)",
+      payoutWallet: "alex.sui (test)",
       events: [
-        ev("Demo funds reserved", "Merchant"),
+        ev("Test funds reserved", "Merchant"),
         ev("Receipt confirmed", "Recipient"),
-        ev("Demo payout completed · no on-chain transfer", "Operator"),
+        ev("Simulated payout · no on-chain transfer", "Operator"),
       ],
     }),
   ],
@@ -241,14 +243,14 @@ export function transitionJob(
       next.initials = DEMO_COURIER.initials;
       next.acceptVerified = true;
       next.payoutWallet = DEMO_COURIER.payoutWallet;
-      event("Fresh demo acceptance check completed", "Courier");
+      event("Fresh test acceptance check completed", "Courier");
       break;
     case "VERIFY_PICKUP":
       require(next.status === "ASSIGNED" &&
         next.acceptVerified &&
         !next.pickupVerified, "This pickup check has already been used or the delivery is not assigned.");
       next.pickupVerified = true;
-      event("Fresh demo pickup check completed", "Courier");
+      event("Fresh test pickup check completed", "Courier");
       break;
     case "HANDOFF":
       require(next.status === "ASSIGNED" &&
@@ -272,13 +274,13 @@ export function transitionJob(
         next.acceptVerified &&
         next.payoutWallet, "Payment is locked until all handoffs are confirmed and there is no dispute.");
       next.status = "PAID";
-      event("Demo payout completed · no on-chain transfer", "Operator");
+      event("Simulated payout · no on-chain transfer", "Operator");
       break;
     case "FAIL_PAYOUT":
       require(next.status ===
         "DELIVERY_CONFIRMED", "Only a pending payout can be retried.");
       next.status = "PAYOUT_RETRY";
-      event("Demo settlement failed · funds remain reserved", "Operator");
+      event("Simulated settlement failed · funds remain reserved", "Operator");
       break;
     case "DISPUTE":
       require([
@@ -311,13 +313,15 @@ export function transitionJob(
       next.acceptVerified = false;
       next.pickupVerified = false;
       next.payoutWallet = undefined;
+      // Keep the acceptance timestamp so a status refresh cannot replay it.
+      next.worldPickedUpAt = undefined;
       event("Assignment cancelled · funds remain reserved", "Courier");
       break;
     case "REFUND":
       require(next.status ===
         "FUNDED", "Only an unassigned delivery can be refunded.");
       next.status = "REFUNDED";
-      event("Delivery cancelled · demo funds returned", "Merchant");
+      event("Delivery cancelled · test funds returned", "Merchant");
       break;
     case "ATTEMPT":
       require(next.status ===
@@ -375,6 +379,15 @@ function isDemoJob(value: unknown): value is DemoJob {
   )
     return false;
   if (
+    !["worldAcceptedAt", "worldPickedUpAt"].every(
+      (key) => value[key] === undefined || isWorldTimestamp(value[key]),
+    ) ||
+    (value.worldPickedUpAt !== undefined &&
+      (!isWorldTimestamp(value.worldAcceptedAt) ||
+        (value.worldPickedUpAt as number) < value.worldAcceptedAt))
+  )
+    return false;
+  if (
     !["courier", "initials", "payoutWallet", "disputeReason"].every(
       (key) => value[key] === undefined || isNonemptyString(value[key]),
     )
@@ -417,8 +430,30 @@ export function parseSnapshot(snapshot: string): DemoState {
       typeof state.notifications === "boolean" &&
       typeof state.courierEnrolled === "boolean" &&
       typeof state.walletConnected === "boolean"
-    )
-      return state as DemoState;
+    ) {
+      const parsed = state as DemoState;
+      const neutralText = (text: string) =>
+        text
+          .replace(/Demo payout completed/g, "Simulated payout")
+          .replace(/Demo settlement failed/g, "Simulated settlement failed")
+          .replace(/\bDemo\b/g, "Test")
+          .replace(/\bdemo\b/g, "test");
+      // Preserve saved assignments while updating the old fixture wording.
+      return {
+        ...parsed,
+        jobs: parsed.jobs.map((job) => ({
+          ...migrateSeededRoute(job),
+          ...(job.payoutWallet
+            ? { payoutWallet: job.payoutWallet.replace(/\(demo\)/gi, "(test)") }
+            : {}),
+          events: job.events.map((event) => ({
+            ...event,
+            title: neutralText(event.title),
+            actor: neutralText(event.actor),
+          })),
+        })),
+      };
+    }
   } catch {
     /* Invalid local demo data resets to an independent copy of the fixture. */
   }

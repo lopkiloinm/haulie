@@ -1,8 +1,8 @@
 # World for Agents sandbox
 
-Entry: https://haulie-chi.vercel.app/world-sandbox, also linked from the courier workspace and each simulated verification panel.
+Primary entry: https://haulie-chi.vercel.app/courier. The map workspace brings World verification and the Sui wallet together. The standalone verifier remains at https://haulie-chi.vercel.app/world-sandbox.
 
-This connects to the **official** World sandbox OIDC service, not the local “Simulate fresh verification” button. World currently mocks sandbox identities. Successful sandbox authentication is not production proof of humanity.
+This connects to the **official** World sandbox OIDC service, not local simulated verification. World currently mocks sandbox identities. Successful sandbox authentication is not production proof of humanity.
 
 ## What works
 
@@ -35,7 +35,9 @@ These are configured on the current deployment. No credentials belong in source 
 
 ## Scope
 
-The sandbox journey has its own isolated order ledger for each browser, expiring after 24 hours. It does not assign the shared PostgreSQL live jobs, change the local dashboard demo state, bind an actual Sui wallet, or pay money. This deliberately keeps the provider's fake test identities away from real inventory and funds. The existing IDKit-v4/PostgreSQL live backend remains separate.
+The sandbox journey has its own isolated order ledger for each browser, expiring after 24 hours. Verified records project onto the local courier board. Acceptance snapshots the connected Sui wallet address as a payout preference; this is not a cryptographic proof of wallet ownership. The callback returns to the map, selects the assigned delivery, and requests a separate fresh World check at pickup. It does not assign shared PostgreSQL live jobs or authorize payments. The existing IDKit-v4/PostgreSQL live backend remains separate.
+
+A same-origin request can release a browser-scoped assignment before pickup or attach a wallet preference once to an older verified record that lacks one. The signed World subject is retained; changing an existing wallet preference is rejected. Local state and query flags never authorize a real Sui transfer.
 
 The encrypted cookie ledger is appropriate only for these isolated test orders: it does not provide global courier uniqueness, cross-browser exclusive assignment, durable audit records, or atomic multi-tab mutations. Those guarantees require integrating the verified identity with the existing authenticated PostgreSQL transactions before enabling real deliveries. Provider code redemption and consumed pending cookies reject ordinary callback replay; this is not a claim of durable globally exactly-once settlement.
 
@@ -49,7 +51,7 @@ Verified against the deployed official provider on 2026-09-26:
 - Cross-origin start request returned 403.
 - Mobile/desktop layouts at 360, 390, 768, 1024 and 1440 pixels had no horizontal overflow.
 
-Unit tests cover issuer/audience/signature/expiry/nonce validation, stale and future authentication, identity mismatch, encrypted-cookie tampering, cookie purpose separation and invalid/repeated order transitions. The denied callback test injects the documented OAuth error rather than claiming a person clicked a provider consent screen; current sandbox test authentication completes automatically.
+Unit tests cover projection idempotency, cancellation replay, wallet snapshot preservation, fixed callback destinations, legacy record migration, issuer/audience/signature/expiry/nonce validation, stale and future authentication, identity mismatch, encrypted-cookie tampering, cookie purpose separation and invalid/repeated order transitions. The denied callback test injects the documented OAuth error rather than claiming a person clicked a provider consent screen; current sandbox test authentication completes automatically.
 
 Run local tests with `npm test` and `npm run test:e2e`. Run the opt-in real-provider suite with:
 
